@@ -89,6 +89,7 @@
     top: 0.5rem;
     right: 0.5rem;
     left: auto;
+    z-index: 10;
   }
 
   .drawing-tools.ol-control {
