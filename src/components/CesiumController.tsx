@@ -4,8 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { Map } from 'ol';
 import { createWorldTerrainAsync, Cesium3DTileset } from 'cesium';
 
-// Use require for CommonJS modules like ol-cesium
-const OLCesium = require('ol-cesium');
+// ol-cesium is imported inside useEffect to prevent SSR issues and conflicts with Next.js module loading.
 
 interface CesiumControllerProps {
   map: Map | null;
@@ -14,44 +13,49 @@ interface CesiumControllerProps {
 
 export default function CesiumController({ map, enabled }: CesiumControllerProps) {
   const ol3d = useRef<any | null>(null);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (!map) return;
-    
-    let isInitialized = !!ol3d.current;
+    if (!map || typeof window === 'undefined') return;
 
-    if (!isInitialized) {
+    // Dynamically require ol-cesium only on the client side, inside useEffect
+    const OLCesium = require('ol-cesium');
+
+    if (!isInitialized.current) {
       try {
-        ol3d.current = new OLCesium({ map: map });
+        const ol3dInstance = new OLCesium({ map: map });
+        ol3d.current = ol3dInstance;
+        
+        const scene = ol3dInstance.getCesiumScene();
+        
+        createWorldTerrainAsync().then(terrainProvider => {
+            scene.terrainProvider = terrainProvider;
+        }).catch(error => {
+            console.error("Error setting terrain provider:", error);
+        });
+
+        Cesium3DTileset.fromUrl('https://assets.cesium.com/1/ion/default/v1/354307/tileset.json?assetId=354307', {
+          skipLevelOfDetail: true,
+          cullWithChildrenBounds: false,
+        }).then(tileset => {
+            scene.primitives.add(tileset);
+        }).catch(error => {
+            console.error("Error loading 3D tileset:", error);
+        });
+
+        isInitialized.current = true;
       } catch (error) {
         console.error("Error initializing OLCesium:", error);
         return;
       }
     }
     
-    const scene = ol3d.current.getCesiumScene();
-    
-    try {
-        if (enabled && !isInitialized) {
-            createWorldTerrainAsync().then(terrainProvider => {
-                scene.terrainProvider = terrainProvider;
-            }).catch(error => {
-                console.error("Error setting terrain provider:", error);
-            });
-
-            Cesium3DTileset.fromUrl('https://assets.cesium.com/1/ion/default/v1/354307/tileset.json?assetId=354307', {
-              skipLevelOfDetail: true,
-              cullWithChildrenBounds: false,
-            }).then(tileset => {
-                scene.primitives.add(tileset);
-            }).catch(error => {
-                console.error("Error loading 3D tileset:", error);
-            });
-        }
-
+    if (ol3d.current) {
+      try {
         ol3d.current.setEnabled(enabled);
-    } catch (error) {
-        console.error("Error controlling Cesium:", error);
+      } catch (error) {
+        console.error("Error controlling Cesium enabled state:", error);
+      }
     }
 
   }, [map, enabled]);
