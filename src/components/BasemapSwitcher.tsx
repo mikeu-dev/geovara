@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Control } from 'ol/control';
+import { useState } from 'react';
 import type { Map } from 'ol';
 import type TileLayer from 'ol/layer/Tile';
 import type { OSM, XYZ } from 'ol/source';
@@ -29,25 +28,7 @@ interface BasemapSwitcherProps {
 }
 
 export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps) {
-  const controlRef = useRef<HTMLDivElement>(null);
   const [activeBasemap, setActiveBasemap] = useState('osm');
-
-  useEffect(() => {
-    if (map && controlRef.current && controlRef.current.children.length > 0) {
-      const customControl = new Control({
-        element: controlRef.current,
-      });
-      const isControlAdded = map.getControls().getArray().some(control => control === customControl);
-      if (!isControlAdded) {
-        map.addControl(customControl);
-      }
-      return () => {
-        if (map.getControls().getArray().some(control => control === customControl)) {
-          map.removeControl(customControl);
-        }
-      };
-    }
-  }, [map]);
 
   const handleBasemapChange = (basemapId: string) => {
     const selectedBasemap = basemaps.find(b => b.id === basemapId);
@@ -57,16 +38,17 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
     }
   };
   
+  if (!tileLayer) return null;
 
   return (
-    <div ref={controlRef} className="basemap-switcher ol-control ol-unselectable">
+    <div className="basemap-switcher ol-control ol-unselectable">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className='bg-card/80'>
+          <Button variant="outline" size="icon" className='bg-card/80 w-[2.25rem] h-[2.25rem]'>
             <Layers className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent side='top' align='start'>
+        <DropdownMenuContent side='top' align='end'>
           {basemaps.map(basemap => (
             <DropdownMenuItem key={basemap.id} onSelect={() => handleBasemapChange(basemap.id)}>
               <div className="w-4 mr-2">
@@ -80,5 +62,3 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
     </div>
   );
 }
-
-    

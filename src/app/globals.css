@@ -95,6 +95,15 @@
   .drawing-tools.ol-control {
     display: flex;
     flex-direction: column;
+    gap: 0.5rem;
+    padding: 0;
+    border-radius: var(--radius);
+    background-color: transparent;
+  }
+
+  .drawing-tools .drawing-controls {
+    display: flex;
+    flex-direction: column;
     gap: 0.25rem;
     padding: 0.25rem;
     border-radius: var(--radius);
@@ -122,15 +131,11 @@
     color: hsl(var(--accent-foreground));
   }
 
-  .basemap-switcher {
-    bottom: 5.5rem;
-    left: auto;
-    right: 1.5rem;
-    z-index: 10;
-  }
   .basemap-switcher.ol-control {
     background-color: hsla(var(--card) / 0.8);
     backdrop-filter: blur(4px);
     border-radius: var(--radius);
+    position: static;
+    width: fit-content;
   }
 }

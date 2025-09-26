@@ -23,7 +23,6 @@ import {
 import GeoJSON from 'ol/format/GeoJSON';
 import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
-import BasemapSwitcher from './BasemapSwitcher';
 import type { XYZ } from 'ol/source';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
@@ -374,8 +373,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
 
   return (
     <div ref={mapRef} className="w-full h-full relative">
-      <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
-      <BasemapSwitcher tileLayer={tileLayer} map={mapInstance.current} />
+      <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} tileLayer={tileLayer} />
       <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (
          <FeaturePropertiesPopup
@@ -392,5 +390,3 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     </div>
   );
 }
-
-    
