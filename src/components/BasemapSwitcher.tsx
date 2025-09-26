@@ -41,7 +41,7 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
   if (!tileLayer) return null;
 
   return (
-    <div className="basemap-switcher ol-control ol-unselectable bg-card/80 backdrop-filter-[4px] rounded-md p-0.5">
+    <div className="bg-card/80 backdrop-filter-[4px] rounded-md p-0.5">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className='w-[2.25rem] h-[2.25rem]'>
