@@ -6,10 +6,11 @@ import type { Map } from 'ol';
 import type { DrawType } from '@/app/page';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2 } from 'lucide-react';
+import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Globe, Map as MapIcon } from 'lucide-react';
 import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
+import MapModeToggle from './MapModeToggle';
 
 interface DrawingToolsProps {
   map: Map | null;
@@ -17,9 +18,11 @@ interface DrawingToolsProps {
   setDrawType: (type: DrawType | null) => void;
   featuresCount: number;
   tileLayer: TileLayer<OSM | XYZ> | null;
+  is3d: boolean;
+  onToggle3d: () => void;
 }
 
-export default function DrawingTools({ map, drawType, setDrawType, featuresCount, tileLayer }: DrawingToolsProps) {
+export default function DrawingTools({ map, drawType, setDrawType, featuresCount, tileLayer, is3d, onToggle3d }: DrawingToolsProps) {
   const controlRef = useRef<HTMLDivElement>(null);
   const customControlRef = useRef<Control | null>(null);
   
@@ -42,8 +45,8 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
     }
 
     return () => {
-        // On cleanup, remove the control if it exists on the map
-        if (map.getControls().getArray().includes(customControl)) {
+        // On cleanup, remove the control if it exists on the map and if map exists
+        if (map && map.getControls().getArray().includes(customControl)) {
             map.removeControl(customControl);
         }
     };
@@ -55,64 +58,67 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
 
   return (
     <div ref={controlRef} className="drawing-tools ol-control ol-unselectable">
+       <div className='flex flex-col gap-2'>
+        <MapModeToggle is3d={is3d} onToggle3d={onToggle3d} />
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
-        <div className='drawing-controls'>
-            <Toggle
-                aria-label="Select feature"
-                pressed={drawType === null}
-                onPressedChange={() => setDrawType(null)}
-            >
-                <Pointer className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-                aria-label="Draw a point"
-                pressed={drawType === 'Point'}
-                onPressedChange={() => handleDrawTypeChange('Point')}
-            >
-                <MapPin className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-                aria-label="Draw a line"
-                pressed={drawType === 'LineString'}
-                onPressedChange={() => handleDrawTypeChange('LineString')}
-            >
-                <Spline className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-                aria-label="Draw a polygon"
-                pressed={drawType === 'Polygon'}
-                onPressedChange={() => handleDrawTypeChange('Polygon')}
-            >
-                <Square className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-                aria-label="Draw a circle"
-                pressed={drawType === 'Circle'}
-                onPressedChange={() => handleDrawTypeChange('Circle')}
-            >
-                <Circle className="h-4 w-4" />
-            </Toggle>
+      </div>
+      <div className='drawing-controls'>
+          <Toggle
+              aria-label="Select feature"
+              pressed={drawType === null}
+              onPressedChange={() => setDrawType(null)}
+          >
+              <Pointer className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+              aria-label="Draw a point"
+              pressed={drawType === 'Point'}
+              onPressedChange={() => handleDrawTypeChange('Point')}
+          >
+              <MapPin className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+              aria-label="Draw a line"
+              pressed={drawType === 'LineString'}
+              onPressedChange={() => handleDrawTypeChange('LineString')}
+          >
+              <Spline className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+              aria-label="Draw a polygon"
+              pressed={drawType === 'Polygon'}
+              onPressedChange={() => handleDrawTypeChange('Polygon')}
+          >
+              <Square className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+              aria-label="Draw a circle"
+              pressed={drawType === 'Circle'}
+              onPressedChange={() => handleDrawTypeChange('Circle')}
+          >
+              <Circle className="h-4 w-4" />
+          </Toggle>
 
-            {featuresCount > 0 && (
-                <>
-                <Separator orientation="horizontal" className="my-1 bg-border" />
-                <Toggle
-                    aria-label="Edit feature"
-                    pressed={drawType === 'Edit'}
-                    onPressedChange={() => handleDrawTypeChange('Edit')}
-                >
-                    <Pencil className="h-4 w-4" />
-                </Toggle>
-                <Toggle
-                    aria-label="Delete feature"
-                    pressed={drawType === 'Delete'}
-                    onPressedChange={() => handleDrawTypeChange('Delete')}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Toggle>
-                </>
-            )}
-        </div>
+          {featuresCount > 0 && (
+              <>
+              <Separator orientation="horizontal" className="my-1 bg-border" />
+              <Toggle
+                  aria-label="Edit feature"
+                  pressed={drawType === 'Edit'}
+                  onPressedChange={() => handleDrawTypeChange('Edit')}
+              >
+                  <Pencil className="h-4 w-4" />
+              </Toggle>
+              <Toggle
+                  aria-label="Delete feature"
+                  pressed={drawType === 'Delete'}
+                  onPressedChange={() => handleDrawTypeChange('Delete')}
+              >
+                  <Trash2 className="h-4 w-4" />
+              </Toggle>
+              </>
+          )}
+      </div>
     </div>
   );
 }

@@ -138,4 +138,10 @@
     position: static;
     width: fit-content;
   }
+
+  /* Cesium attribution */
+  .cesium-widget-credits {
+    @apply text-xs bg-background/50 text-foreground rounded-md p-1;
+    display: block !important;
+  }
 }
