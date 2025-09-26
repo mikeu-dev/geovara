@@ -77,15 +77,6 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
       document.documentElement.classList.remove('dark');
     }
   };
-
-  const handleCopy = useCallback(() => {
-    if (!geojsonString) return;
-    navigator.clipboard.writeText(geojsonString);
-    toast({
-      title: 'Copied to Clipboard!',
-      description: 'The GeoJSON has been copied to your clipboard.',
-    });
-  }, [geojsonString, toast]);
   
   const handleClear = () => {
     onClear();
@@ -224,19 +215,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                     </MenubarMenu>
 
                     <MenubarSeparator orientation="vertical" className="h-6 mx-1" />
-
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleCopy}>
-                            <Copy className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Copy GeoJSON</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
+                    
                     <MenubarMenu>
                       <Tooltip>
                         <TooltipTrigger asChild>
