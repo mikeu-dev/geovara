@@ -10,7 +10,7 @@ import MapSkeleton from '@/components/MapSkeleton';
 import FeaturePropertiesDialog from '@/components/FeaturePropertiesDialog';
 
 
-export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle';
+export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
@@ -55,6 +55,14 @@ export default function Home() {
       setGeojsonString('Error generating GeoJSON');
     }
   }, [features]);
+  
+  useEffect(() => {
+    if (drawType === 'Delete' && selectedFeature) {
+      handleDeleteSelected();
+      setDrawType(null);
+    }
+  }, [drawType, selectedFeature]);
+
 
   const handleGeojsonChange = (value: string | undefined) => {
     const newGeojsonString = value || '';
@@ -101,8 +109,10 @@ export default function Home() {
 
   const handleFeatureSelect = useCallback((feature: Feature<Geometry> | null) => {
     setSelectedFeature(feature);
-    setIsFeatureDialogOpen(!!feature);
-  }, []);
+    if(drawType !== 'Edit') {
+      setIsFeatureDialogOpen(!!feature);
+    }
+  }, [drawType]);
 
   const handleDialogClose = () => {
     setIsFeatureDialogOpen(false);

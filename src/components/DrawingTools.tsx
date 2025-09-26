@@ -5,15 +5,17 @@ import { useEffect, useRef } from 'react';
 import type { Map } from 'ol';
 import type { DrawType } from '@/app/page';
 import { Toggle } from '@/components/ui/toggle';
-import { MapPin, Spline, Square, Circle, Pointer } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2 } from 'lucide-react';
 
 interface DrawingToolsProps {
   map: Map | null;
   drawType: DrawType | null;
   setDrawType: (type: DrawType | null) => void;
+  featuresCount: number;
 }
 
-export default function DrawingTools({ map, drawType, setDrawType }: DrawingToolsProps) {
+export default function DrawingTools({ map, drawType, setDrawType, featuresCount }: DrawingToolsProps) {
   const controlRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -76,6 +78,26 @@ export default function DrawingTools({ map, drawType, setDrawType }: DrawingTool
       >
         <Circle className="h-4 w-4" />
       </Toggle>
+
+      {featuresCount > 0 && (
+        <>
+          <Separator orientation="horizontal" className="my-1 bg-border" />
+          <Toggle
+            aria-label="Edit feature"
+            pressed={drawType === 'Edit'}
+            onPressedChange={() => handleDrawTypeChange('Edit')}
+          >
+            <Pencil className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+            aria-label="Delete feature"
+            pressed={drawType === 'Delete'}
+            onPressedChange={() => handleDrawTypeChange('Delete')}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Toggle>
+        </>
+      )}
     </div>
   );
 }

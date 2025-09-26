@@ -22,7 +22,7 @@ import {
   Zoom,
 } from 'ol/control';
 
-type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle';
+type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -130,11 +130,14 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       ]),
     });
 
-    modifyInteraction.current = new Modify({ source: vectorSource.current });
+    modifyInteraction.current = new Modify({ 
+      source: vectorSource.current ,
+    });
     mapInstance.current.addInteraction(modifyInteraction.current);
     modifyInteraction.current.on('modifyend', (e: ModifyEvent) => {
         setFeatures(prev => [...prev]);
     });
+    modifyInteraction.current.setActive(false);
 
     selectInteraction.current = new Select({ 
       style: styleFunction,
@@ -178,18 +181,23 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       mapInstance.current.removeInteraction(drawInteraction.current);
       drawInteraction.current = null;
     }
-  
+    
     if (selectInteraction.current) {
-      selectInteraction.current.setActive(!drawType);
+      const isDrawing = drawType && ['Point', 'LineString', 'Polygon', 'Circle'].includes(drawType);
+      selectInteraction.current.setActive(!isDrawing);
     }
   
-    if (drawType) {
+    if (modifyInteraction.current) {
+      modifyInteraction.current.setActive(drawType === 'Edit');
+    }
+  
+    if (drawType && ['Point', 'LineString', 'Polygon', 'Circle'].includes(drawType)) {
       selectInteraction.current?.getFeatures().clear();
       onFeatureSelect(null);
       
       drawInteraction.current = new Draw({
         source: vectorSource.current,
-        type: drawType,
+        type: drawType as 'Point' | 'LineString' | 'Polygon' | 'Circle',
       });
   
       drawInteraction.current.on('drawend', (e: DrawEvent) => {
@@ -253,7 +261,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
 
   return (
     <div ref={mapRef} className="w-full h-full">
-      <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} />
+      <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
     </div>
   );
 }
