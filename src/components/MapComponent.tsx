@@ -196,12 +196,12 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         newFeature.set('description', '');
 
         setFeatures((prev) => [...prev, newFeature]);
-        onFeatureSelect(newFeature);
+        setDrawType(null);
       });
       
       mapInstance.current.addInteraction(drawInteraction.current);
     }
-  }, [drawType, setFeatures, onFeatureSelect]);
+  }, [drawType, setFeatures, onFeatureSelect, setDrawType]);
 
   useEffect(() => {
     const source = vectorSource.current;
