@@ -4,11 +4,22 @@ import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { Skeleton } from './ui/skeleton';
+import GeoJSON from 'ol/format/GeoJSON';
+import KML from 'ol/format/KML';
+import JSZip from 'jszip';
+import { Feature } from 'ol';
+import { Geometry } from 'ol/geom';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -21,6 +32,16 @@ interface SidebarProps {
     featuresCount: number;
     onClear: () => void;
 }
+
+const geojsonFormat = new GeoJSON({
+  featureProjection: 'EPSG:3857',
+  dataProjection: 'EPSG:4326',
+});
+
+const kmlFormat = new KML({
+    extractStyles: true,
+    showPointNames: true,
+});
 
 export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount, onClear }: SidebarProps) {
   const { toast } = useToast();
@@ -80,6 +101,58 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
       setValidationStatus('idle');
     }
   }, [geojsonString]);
+
+  const handleDownload = async (format: 'geojson' | 'kml' | 'kmz') => {
+    if (!geojsonString) {
+        toast({ title: 'No data to save', variant: 'destructive' });
+        return;
+    }
+
+    try {
+        const features = geojsonFormat.readFeatures(geojsonString) as Feature<Geometry>[];
+        let data: string | Blob;
+        let filename: string;
+        let mimeType: string;
+
+        switch (format) {
+            case 'geojson':
+                data = geojsonString;
+                filename = 'map.geojson';
+                mimeType = 'application/vnd.geo+json';
+                break;
+            case 'kml':
+                data = kmlFormat.writeFeatures(features);
+                filename = 'map.kml';
+                mimeType = 'application/vnd.google-earth.kml+xml';
+                break;
+            case 'kmz':
+                const kmlData = kmlFormat.writeFeatures(features, {
+                    featureProjection: 'EPSG:4326',
+                    dataProjection: 'EPSG:4326',
+                });
+                const zip = new JSZip();
+                zip.file('doc.kml', kmlData);
+                data = await zip.generateAsync({type: 'blob'});
+                filename = 'map.kmz';
+                mimeType = 'application/vnd.google-earth.kmz';
+                break;
+        }
+        
+        const blob = new Blob([data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: `Successfully downloaded ${filename}` });
+    } catch (error) {
+        console.error('Error during download:', error);
+        toast({ title: 'Download failed', description: 'Could not generate file.', variant: 'destructive' });
+    }
+  };
   
   return (
       <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto">
@@ -95,7 +168,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                     <CardTitle className="text-lg">GeoJSON Output</CardTitle>
                     <div className="flex items-center gap-2">
                        <Button variant="outline" size="sm" onClick={handleClear} disabled={featuresCount === 0}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Clear All
+                        <Trash2 className="h-4 w-4 mr-2" /> Clear
                       </Button>
                       <Button variant="secondary" size="sm" onClick={handleValidate} disabled={!geojsonString}>
                         {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Validate'}
@@ -104,6 +177,25 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                           <Copy className="h-4 w-4" />
                           <span className="sr-only">Copy GeoJSON</span>
                       </Button>
+                       <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="default" size="sm" disabled={!geojsonString}>
+                              Save
+                              <ChevronDown className="h-4 w-4 ml-2" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleDownload('geojson')}>
+                              Save as GeoJSON
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownload('kml')}>
+                              Save as KML
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownload('kmz')}>
+                              Save as KMZ
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </CardHeader>
