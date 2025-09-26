@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Copy, MapPin, Spline, Rectangle, Trash2, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Copy, MapPin, Spline, Square, Trash2, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import type { DrawType } from '@/app/page';
 
@@ -101,7 +101,7 @@ export default function Sidebar({ drawType, setDrawType, geojsonString, features
                   <Spline className="h-4 w-4" /> <span className="hidden sm:inline">Line</span>
                 </ToggleGroupItem>
                 <ToggleGroupItem value="Polygon" aria-label="Draw a polygon" className="flex-1 gap-2">
-                  <Rectangle className="h-4 w-4" /> <span className="hidden sm:inline">Polygon</span>
+                  <Square className="h-4 w-4" /> <span className="hidden sm:inline">Polygon</span>
                 </ToggleGroupItem>
               </ToggleGroup>
               <Button variant="outline" onClick={handleClear} disabled={featuresCount === 0}>
