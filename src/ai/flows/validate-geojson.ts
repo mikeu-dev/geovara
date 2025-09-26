@@ -26,17 +26,19 @@ export async function validateGeoJSON(input: ValidateGeoJSONInput): Promise<Vali
 
 const validateGeoJSONPrompt = ai.definePrompt({
   name: 'validateGeoJSONPrompt',
-  input: {schema: ValidateGeoJSONInputSchema},
+  input: {schema: ValidateGeoJSONInputSchema },
   output: {schema: ValidateGeoJSONOutputSchema},
-  prompt: `You are a GeoJSON expert.  Your job is to validate the GeoJSON provided and provide feedback.
+  prompt: `You are a strict GeoJSON validator. Your job is to validate the provided text against the GeoJSON specification (RFC 7946).
 
-  Here is the GeoJSON to validate:
-  \`\`\`
-  {{{input}}}
-  \`\`\`
+Here is the GeoJSON to validate:
+\`\`\`json
+{{{input}}}
+\`\`\`
 
-  Respond in JSON format.  Set isValid to true if the GeoJSON is valid, and false otherwise.
-  Provide feedback on the GeoJSON, and if it is invalid, describe the errors.
+Respond in JSON format.
+- Set 'isValid' to true if the GeoJSON is perfectly valid according to RFC 7946.
+- Set 'isValid' to false ONLY if there is a clear violation of the GeoJSON specification.
+- In the 'feedback' field, provide a concise explanation. If valid, say "The GeoJSON is valid." If invalid, briefly explain the specific error.
   `,
 });
 
