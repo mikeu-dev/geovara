@@ -57,9 +57,6 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
     }
   };
   
-  if (!tileLayer) {
-    return null;
-  }
 
   return (
     <div ref={controlRef} className="basemap-switcher ol-control ol-unselectable">
@@ -83,3 +80,5 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
     </div>
   );
 }
+
+    

@@ -131,7 +131,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   const drawInteraction = useRef<Draw | null>(null);
   const selectInteraction = useRef<Select | null>(null);
   const modifyInteraction = useRef<Modify | null>(null);
-  const tileLayer = useRef<TileLayer<OSM | XYZ> | null>(null);
+  const [tileLayer, setTileLayer] = useState<TileLayer<OSM | XYZ> | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
 
 
@@ -154,9 +154,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
-    tileLayer.current = new TileLayer({
+    const initialTileLayer = new TileLayer({
         source: new OSM(),
     });
+    setTileLayer(initialTileLayer);
     
     const vectorLayer = new VectorLayer({
       source: vectorSource.current,
@@ -179,7 +180,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     mapInstance.current = new Map({
       target: mapRef.current,
       layers: [
-        tileLayer.current,
+        initialTileLayer,
         vectorLayer,
       ],
       overlays: [popupOverlay],
@@ -374,7 +375,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   return (
     <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
-      <BasemapSwitcher tileLayer={tileLayer.current} map={mapInstance.current} />
+      <BasemapSwitcher tileLayer={tileLayer} map={mapInstance.current} />
       <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (
          <FeaturePropertiesPopup
@@ -391,3 +392,5 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     </div>
   );
 }
+
+    
