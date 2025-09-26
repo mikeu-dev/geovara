@@ -374,7 +374,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   return (
     <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
-      <BasemapSwitcher tileLayer={tileLayer.current!} map={mapInstance.current} />
+      <BasemapSwitcher tileLayer={tileLayer.current} map={mapInstance.current} />
       <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (
          <FeaturePropertiesPopup

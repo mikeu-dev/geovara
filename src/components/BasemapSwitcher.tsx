@@ -25,7 +25,7 @@ const basemaps = [
 
 interface BasemapSwitcherProps {
   map: Map | null;
-  tileLayer: TileLayer<OSM | XYZ>;
+  tileLayer: TileLayer<OSM | XYZ> | null;
 }
 
 export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps) {
@@ -33,7 +33,7 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
   const [activeBasemap, setActiveBasemap] = useState('osm');
 
   useEffect(() => {
-    if (map && controlRef.current) {
+    if (map && controlRef.current && controlRef.current.children.length > 0) {
       const customControl = new Control({
         element: controlRef.current,
       });
@@ -51,11 +51,15 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
 
   const handleBasemapChange = (basemapId: string) => {
     const selectedBasemap = basemaps.find(b => b.id === basemapId);
-    if (selectedBasemap) {
+    if (selectedBasemap && tileLayer) {
       tileLayer.setSource(selectedBasemap.source as any);
       setActiveBasemap(basemapId);
     }
   };
+  
+  if (!tileLayer) {
+    return null;
+  }
 
   return (
     <div ref={controlRef} className="basemap-switcher ol-control ol-unselectable">
