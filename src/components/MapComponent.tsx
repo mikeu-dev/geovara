@@ -22,7 +22,7 @@ import {
   Zoom,
 } from 'ol/control';
 import GeoJSON from 'ol/format/GeoJSON';
-import type { VectorSourceEvent } from 'ol/source/Vector';
+import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
@@ -141,9 +141,9 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       ],
     });
 
-    dragAndDropInteraction.on('addfeatures', (event) => {
-      const dropSource = (event as VectorSourceEvent).target as VectorSource<Geometry>;
-      const droppedFeatures = dropSource.getFeatures();
+    dragAndDropInteraction.on('addfeatures', (event: DragAndDropEvent) => {
+      const droppedFeatures = event.features;
+      if (!droppedFeatures) return;
       
       const newFeaturesWithId = droppedFeatures.map((f, i) => {
         if (!f.getId()) {
@@ -153,7 +153,6 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       })
 
       setFeatures(prev => [...prev, ...newFeaturesWithId]);
-      dropSource.clear(); // Clear the source of the drag-and-drop interaction
     });
     mapInstance.current.addInteraction(dragAndDropInteraction);
 
