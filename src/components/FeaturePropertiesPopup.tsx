@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -20,6 +20,16 @@ interface FeaturePropertiesPopupProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const getSanitizedProperties = (feature: Feature<Geometry>) => {
+  const props = feature.getProperties();
+  // Exclude non-serializable or internal properties from the editor
+  delete props.geometry;
+  return Object.entries(props).filter(([_, value]) =>
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || (typeof value === 'object' && value !== null && !Array.isArray(value))
+  );
+};
+
+
 export default function FeaturePropertiesPopup({
   feature,
   onDelete,
@@ -27,44 +37,90 @@ export default function FeaturePropertiesPopup({
   children,
   onOpenChange,
 }: FeaturePropertiesPopupProps) {
+  const [properties, setProperties] = useState(getSanitizedProperties(feature));
 
-  const getProperties = (feature: Feature<Geometry>) => {
-    const props = feature.getProperties();
-    // Exclude geometry from the properties list
-    delete props.geometry;
-    return Object.entries(props);
-  }
-
-  const [properties, setProperties] = useState(getProperties(feature));
-
+  // When the feature changes, update the properties in the state
   useEffect(() => {
-    setProperties(getProperties(feature));
+    setProperties(getSanitizedProperties(feature));
   }, [feature]);
 
-  const handlePropertyKeyChange = (oldKey: string, newKey: string, value: any) => {
-    if(oldKey !== newKey) {
-        onPropertyChange(feature.getId()!, newKey, value);
-        onPropertyChange(feature.getId()!, oldKey, undefined); // unset old key
-    }
+  const handlePropertyKeyChange = (oldKey: string, newKey: string) => {
+    // Prevent empty keys
+    if (!newKey.trim()) return;
+
+    const currentValue = feature.get(oldKey);
+    onPropertyChange(feature.getId()!, oldKey, undefined); // Unset the old key
+    onPropertyChange(feature.getId()!, newKey, currentValue); // Set the new key with the old value
+
+    // Update local state to reflect the change immediately
+    setProperties(prev => prev.map(([key, value]) => key === oldKey ? [newKey, value] : [key, value]));
   };
 
   const handlePropertyValueChange = (key: string, value: any) => {
     onPropertyChange(feature.getId()!, key, value);
-  };
-  
-  const handleAddProperty = () => {
-    const newKey = `property_${properties.length + 1}`;
-    onPropertyChange(feature.getId()!, newKey, '');
-  };
-  
-  const handleRemoveProperty = (key: string) => {
-    onPropertyChange(feature.getId()!, key, undefined); // Unset property
+    // Update local state
+    setProperties(prev => prev.map(([propKey, propValue]) => propKey === key ? [propKey, value] : [propKey, propValue]));
   };
 
-  const handleStyleButtonClick = () => {
-    // This is a placeholder for the styling functionality
-    alert('Styling functionality to be implemented!');
+  const handleAddProperty = () => {
+    // Find a unique new property key
+    let newKey = `new_property`;
+    let i = 1;
+    const existingKeys = properties.map(([k]) => k);
+    while (existingKeys.includes(newKey)) {
+        newKey = `new_property_${i}`;
+        i++;
+    }
+    
+    onPropertyChange(feature.getId()!, newKey, '');
+    setProperties(prev => [...prev, [newKey, '']]);
   };
+
+  const handleRemoveProperty = (keyToRemove: string) => {
+    onPropertyChange(feature.getId()!, keyToRemove, undefined); // Unset property in OpenLayers feature
+    setProperties(prev => prev.filter(([key]) => key !== keyToRemove)); // Update local state
+  };
+
+  const handleAddSimpleStyle = () => {
+    const geometryType = feature.getGeometry()?.getType();
+    const styleProps: Record<string, string | number> = {};
+
+    switch (geometryType) {
+        case 'Point':
+        case 'MultiPoint':
+            styleProps['fill'] = '#ff0000';
+            styleProps['stroke'] = '#ffffff';
+            styleProps['stroke-width'] = 2;
+            styleProps['radius'] = 7;
+            break;
+        case 'LineString':
+        case 'MultiLineString':
+            styleProps['stroke'] = '#0000ff';
+            styleProps['stroke-width'] = 3;
+            break;
+        case 'Polygon':
+        case 'MultiPolygon':
+            styleProps['fill'] = 'rgba(0, 0, 255, 0.1)';
+            styleProps['stroke'] = '#0000ff';
+            styleProps['stroke-width'] = 2;
+            break;
+        default:
+            break;
+    }
+
+    const newProperties = [...properties];
+    for (const [key, value] of Object.entries(styleProps)) {
+        onPropertyChange(feature.getId()!, key, value);
+        const existingPropIndex = newProperties.findIndex(([pKey]) => pKey === key);
+        if (existingPropIndex > -1) {
+            newProperties[existingPropIndex] = [key, value];
+        } else {
+            newProperties.push([key, value]);
+        }
+    }
+    setProperties(newProperties);
+  };
+
 
   return (
     <Popover open={true} onOpenChange={onOpenChange}>
@@ -82,16 +138,20 @@ export default function FeaturePropertiesPopup({
               <div key={key} className="flex items-center gap-2 group">
                  <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <Input
-                  value={key}
+                  defaultValue={key}
                   className="font-mono text-xs"
-                  onChange={(e) => handlePropertyKeyChange(key, e.target.value, value)}
+                  onBlur={(e) => {
+                      if (e.target.value !== key) {
+                        handlePropertyKeyChange(key, e.target.value)
+                      }
+                  }}
                 />
                 <Input
-                  value={typeof value === 'object' ? JSON.stringify(value) : value}
+                  defaultValue={typeof value === 'object' ? JSON.stringify(value) : value}
                   className="text-xs"
-                  onChange={(e) => handlePropertyValueChange(key, e.target.value)}
+                  onBlur={(e) => handlePropertyValueChange(key, e.target.value)}
                 />
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveProperty(key)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => handleRemoveProperty(key)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -101,7 +161,7 @@ export default function FeaturePropertiesPopup({
             <Plus className="h-4 w-4 mr-2" /> Add Property
           </Button>
 
-          <Button variant="link" size="sm" onClick={handleStyleButtonClick} className="p-0 h-auto justify-start">
+          <Button variant="link" size="sm" onClick={handleAddSimpleStyle} className="p-0 h-auto justify-start">
             Add simple style
           </Button>
 

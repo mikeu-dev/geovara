@@ -37,6 +37,90 @@ interface MapProps {
   onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
 }
 
+const selectedStyle = new Style({
+  fill: new Fill({
+    color: 'hsla(0, 100%, 50%, 0.3)',
+  }),
+  stroke: new Stroke({
+    color: 'hsl(0, 100%, 50%)',
+    width: 3,
+  }),
+  image: new CircleStyle({
+    radius: 7,
+    fill: new Fill({ color: 'hsla(0, 100%, 50%, 0.7)' }),
+    stroke: new Stroke({ color: 'hsl(0, 100%, 50%)', width: 2 }),
+  }),
+});
+
+const defaultStyles = {
+  'Point': new Style({
+    image: new CircleStyle({
+      radius: 7,
+      fill: new Fill({ color: 'hsla(180, 100%, 25%, 0.7)' }),
+      stroke: new Stroke({ color: 'hsl(180, 100%, 25%)', width: 2 }),
+    }),
+  }),
+  'LineString': new Style({
+    stroke: new Stroke({
+      color: 'hsl(180, 100%, 25%)',
+      width: 3,
+    }),
+  }),
+  'Polygon': new Style({
+    stroke: new Stroke({
+      color: 'hsl(180, 100%, 25%)',
+      width: 3,
+    }),
+    fill: new Fill({
+      color: 'hsla(180, 100%, 25%, 0.3)',
+    }),
+  }),
+  'Circle': new Style({
+    stroke: new Stroke({
+      color: 'hsl(180, 100%, 25%)',
+      width: 3,
+    }),
+    fill: new Fill({
+      color: 'hsla(180, 100%, 25%, 0.3)',
+    }),
+  }),
+};
+
+// This function creates a style from feature properties
+const styleFromProperties = (feature: Feature<Geometry>): Style | undefined => {
+  const props = feature.getProperties();
+  const geomType = feature.getGeometry()?.getType();
+
+  let fill: Fill | undefined;
+  if (props['fill']) {
+    fill = new Fill({ color: props['fill'] });
+  }
+
+  let stroke: Stroke | undefined;
+  if (props['stroke'] || props['stroke-width']) {
+    stroke = new Stroke({
+      color: props['stroke'] || '#3399CC',
+      width: props['stroke-width'] || 2,
+    });
+  }
+
+  let image: CircleStyle | undefined;
+  if (geomType === 'Point' || geomType === 'MultiPoint') {
+    image = new CircleStyle({
+      fill: fill || defaultStyles.Point.getImage().getFill(),
+      stroke: stroke || defaultStyles.Point.getImage().getStroke(),
+      radius: props['radius'] || 7,
+    });
+    return new Style({ image });
+  }
+  
+  if (fill || stroke) {
+    return new Style({ fill, stroke, image });
+  }
+
+  return undefined;
+};
+
 export default function MapComponent({ features, setFeatures, drawType, setDrawType, selectedFeature, onFeatureSelect, onDeleteFeature, onFeaturePropertyChange }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -47,60 +131,19 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   const modifyInteraction = useRef<Modify | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
 
-  const selectedStyle = new Style({
-    fill: new Fill({
-      color: 'hsla(0, 100%, 50%, 0.3)',
-    }),
-    stroke: new Stroke({
-      color: 'hsl(0, 100%, 50%)',
-      width: 3,
-    }),
-    image: new CircleStyle({
-      radius: 7,
-      fill: new Fill({ color: 'hsla(0, 100%, 50%, 0.7)' }),
-      stroke: new Stroke({ color: 'hsl(0, 100%, 50%)', width: 2 }),
-    }),
-  });
-
-  const defaultStyles = {
-    'Point': new Style({
-      image: new CircleStyle({
-        radius: 7,
-        fill: new Fill({ color: 'hsla(180, 100%, 25%, 0.7)' }),
-        stroke: new Stroke({ color: 'hsl(180, 100%, 25%)', width: 2 }),
-      }),
-    }),
-    'LineString': new Style({
-      stroke: new Stroke({
-        color: 'hsl(180, 100%, 25%)',
-        width: 3,
-      }),
-    }),
-    'Polygon': new Style({
-      stroke: new Stroke({
-        color: 'hsl(180, 100%, 25%)',
-        width: 3,
-      }),
-      fill: new Fill({
-        color: 'hsla(180, 100%, 25%, 0.3)',
-      }),
-    }),
-    'Circle': new Style({
-      stroke: new Stroke({
-        color: 'hsl(180, 100%, 25%)',
-        width: 3,
-      }),
-      fill: new Fill({
-        color: 'hsla(180, 100%, 25%, 0.3)',
-      }),
-    }),
-  };
 
   const styleFunction = (feature: Feature<Geometry>) => {
     const isSelected = selectedFeature && feature.getId() === selectedFeature.getId();
     if (isSelected) {
       return selectedStyle;
     }
+    
+    // Check for custom style properties on the feature
+    const customStyle = styleFromProperties(feature);
+    if (customStyle) {
+      return customStyle;
+    }
+
     const geomType = feature.getGeometry()?.getType();
     return defaultStyles[geomType as keyof typeof defaultStyles] || defaultStyles['Point'];
   };
@@ -286,6 +329,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       }
     });
     
+    // Force a re-render of the vector layer to apply new styles
     source.changed();
 
   }, [features]);
