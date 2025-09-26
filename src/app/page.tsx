@@ -7,7 +7,6 @@ import GeoJSON from 'ol/format/GeoJSON';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
-import FeaturePropertiesDialog from '@/components/FeaturePropertiesDialog';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
@@ -28,7 +27,6 @@ export default function Home() {
   const [drawType, setDrawType] = useState<DrawType | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [geojsonString, setGeojsonString] = useState('');
-  const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -43,7 +41,8 @@ export default function Home() {
       const featuresToWrite = features.map(feature => {
         const newFeature = feature.clone();
         const properties = feature.getProperties();
-        delete properties.geometry;
+        // The geometry property is not a standard GeoJSON property and can cause issues.
+        delete properties.geometry; 
         newFeature.setProperties(properties);
         return newFeature;
       });
@@ -58,7 +57,7 @@ export default function Home() {
   
   useEffect(() => {
     if (drawType === 'Delete' && selectedFeature) {
-      handleDeleteSelected();
+      handleDeleteFeature(selectedFeature.getId());
       setDrawType(null);
     }
   }, [drawType, selectedFeature]);
@@ -92,32 +91,33 @@ export default function Home() {
     setSelectedFeature(null);
   };
 
-  const handleDeleteSelected = useCallback(() => {
-    if (selectedFeature) {
-      setFeatures(prev => prev.filter(f => f.getId() !== selectedFeature.getId()));
-      setSelectedFeature(null);
-      setIsFeatureDialogOpen(false);
+  const handleDeleteFeature = useCallback((featureId: string | number | undefined) => {
+    if (featureId) {
+      setFeatures(prev => prev.filter(f => f.getId() !== featureId));
+      if (selectedFeature && selectedFeature.getId() === featureId) {
+        setSelectedFeature(null);
+      }
     }
   }, [selectedFeature]);
   
-  const handleFeaturePropertyChange = useCallback((key: string, value: any) => {
-    if (selectedFeature) {
-      selectedFeature.set(key, value);
-      setFeatures(prev => [...prev]);
-    }
-  }, [selectedFeature]);
+  const handleFeaturePropertyChange = useCallback((featureId: string | number, key: string, value: any) => {
+    setFeatures(prev => {
+        const newFeatures = [...prev];
+        const feature = newFeatures.find(f => f.getId() === featureId);
+        if (feature) {
+            if (value === null || value === undefined) {
+              feature.unset(key);
+            } else {
+              feature.set(key, value);
+            }
+        }
+        return newFeatures;
+    });
+  }, []);
 
   const handleFeatureSelect = useCallback((feature: Feature<Geometry> | null) => {
     setSelectedFeature(feature);
-    if(drawType !== 'Edit') {
-      setIsFeatureDialogOpen(!!feature);
-    }
-  }, [drawType]);
-
-  const handleDialogClose = () => {
-    setIsFeatureDialogOpen(false);
-    setSelectedFeature(null);
-  }
+  }, []);
 
   return (
     <main className="flex h-full flex-col md:flex-row bg-background text-foreground">
@@ -136,18 +136,11 @@ export default function Home() {
             setDrawType={setDrawType}
             selectedFeature={selectedFeature}
             onFeatureSelect={handleFeatureSelect}
+            onDeleteFeature={handleDeleteFeature}
+            onFeaturePropertyChange={handleFeaturePropertyChange}
           />
         ) : <MapSkeleton />}
       </div>
-      {selectedFeature && (
-        <FeaturePropertiesDialog
-          isOpen={isFeatureDialogOpen}
-          onOpenChange={handleDialogClose}
-          feature={selectedFeature}
-          onDelete={handleDeleteSelected}
-          onPropertyChange={handleFeaturePropertyChange}
-        />
-      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Map, View } from 'ol';
+import { useEffect, useRef, useState } from 'react';
+import { Map, View, Overlay } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, get as getProjection } from 'ol/proj';
@@ -18,11 +18,11 @@ import DrawingTools from './DrawingTools';
 import {
   defaults as defaultControls,
   Attribution,
-  ScaleLine,
   Zoom,
 } from 'ol/control';
 import GeoJSON from 'ol/format/GeoJSON';
 import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
+import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
@@ -33,15 +33,19 @@ interface MapProps {
   setDrawType: React.Dispatch<React.SetStateAction<DrawType | null>>;
   selectedFeature: Feature<Geometry> | null;
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
+  onDeleteFeature: (featureId: string | number | undefined) => void;
+  onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
 }
 
-export default function MapComponent({ features, setFeatures, drawType, setDrawType, selectedFeature, onFeatureSelect }: MapProps) {
+export default function MapComponent({ features, setFeatures, drawType, setDrawType, selectedFeature, onFeatureSelect, onDeleteFeature, onFeaturePropertyChange }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<Map | null>(null);
   const vectorSource = useRef(new VectorSource());
   const drawInteraction = useRef<Draw | null>(null);
   const selectInteraction = useRef<Select | null>(null);
   const modifyInteraction = useRef<Modify | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   const selectedStyle = new Style({
     fill: new Fill({
@@ -112,6 +116,15 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     const attribution = new Attribution({
       collapsible: false,
     });
+    
+    const popupOverlay = new Overlay({
+      element: popupRef.current!,
+      autoPan: {
+        animation: {
+          duration: 250,
+        },
+      },
+    });
 
     mapInstance.current = new Map({
       target: mapRef.current,
@@ -121,6 +134,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         }),
         vectorLayer,
       ],
+      overlays: [popupOverlay],
       view: new View({
         center: fromLonLat([10, 20]),
         zoom: 3,
@@ -174,8 +188,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     selectInteraction.current.on('select', (e: SelectEvent) => {
       if (e.selected.length > 0) {
         onFeatureSelect(e.selected[0]);
+        setIsPopupOpen(true);
       } else {
         onFeatureSelect(null);
+        setIsPopupOpen(false);
       }
     });
 
@@ -184,9 +200,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         const selectedFeatures = selectInteraction.current?.getFeatures();
         if (selectedFeatures && selectedFeatures.getLength() > 0) {
           const idsToRemove = selectedFeatures.getArray().map(f => f.getId());
-          setFeatures(prev => prev.filter(f => !idsToRemove.includes(f.getId())));
+          idsToRemove.forEach(id => onDeleteFeature(id));
           selectedFeatures.clear();
           onFeatureSelect(null);
+          setIsPopupOpen(false);
         }
       }
     };
@@ -220,6 +237,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     if (drawType && ['Point', 'LineString', 'Polygon', 'Circle'].includes(drawType)) {
       selectInteraction.current?.getFeatures().clear();
       onFeatureSelect(null);
+      setIsPopupOpen(false);
       
       drawInteraction.current = new Draw({
         source: vectorSource.current,
@@ -237,6 +255,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         setFeatures((prev) => [...prev, newFeature]);
         setDrawType(null); // This will trigger the useEffect again, re-enabling select
         onFeatureSelect(newFeature); // Select the feature to show the dialog
+        setIsPopupOpen(true);
       });
       
       mapInstance.current.addInteraction(drawInteraction.current);
@@ -272,22 +291,51 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   }, [features]);
   
   useEffect(() => {
-      if (selectInteraction.current) {
-        const selectedFeaturesCollection = selectInteraction.current.getFeatures();
-        selectedFeaturesCollection.clear();
-        if (selectedFeature && selectedFeature.getId()) {
-            const featureInSource = vectorSource.current.getFeatureById(selectedFeature.getId()!);
-            if (featureInSource) {
-                selectedFeaturesCollection.push(featureInSource);
+      const overlay = mapInstance.current?.getOverlays().getArray()[0];
+      if (isPopupOpen && selectedFeature && overlay) {
+        const geometry = selectedFeature.getGeometry();
+        if(geometry) {
+            const coordinate = geometry.getCoordinates();
+             // For polygons, we get the interior point
+            if (geometry.getType() === 'Polygon' || geometry.getType() === 'MultiPolygon') {
+              overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
+            } else if (geometry.getType() === 'LineString') {
+               overlay.setPosition(geometry.getCoordinateAt(0.5));
+            }
+             else {
+              overlay.setPosition(coordinate as any);
             }
         }
+      } else {
+        overlay?.setPosition(undefined);
       }
-  }, [selectedFeature]);
+  }, [selectedFeature, isPopupOpen]);
+  
+  const handlePopupClose = () => {
+    setIsPopupOpen(false);
+    selectInteraction.current?.getFeatures().clear();
+    onFeatureSelect(null);
+  }
 
+  const handleDeleteAndClose = (featureId: string | number | undefined) => {
+    handlePopupClose();
+    onDeleteFeature(featureId);
+  }
 
   return (
-    <div ref={mapRef} className="w-full h-full">
+    <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
+       {isPopupOpen && selectedFeature && (
+         <FeaturePropertiesPopup
+           feature={selectedFeature}
+           onDelete={handleDeleteAndClose}
+           onPropertyChange={onFeaturePropertyChange}
+           onOpenChange={handlePopupClose}
+         >
+           {/* This is a dummy trigger, the popover is controlled programmatically */}
+           <div ref={popupRef}></div>
+         </FeaturePropertiesPopup>
+      )}
     </div>
   );
 }
