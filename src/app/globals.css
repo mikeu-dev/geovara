@@ -86,8 +86,8 @@
   }
 
   .drawing-tools {
-    top: 0.5rem;
-    right: 0.5rem;
+    bottom: 5.5rem;
+    right: 1.5rem;
     left: auto;
     z-index: 10;
   }
