@@ -86,7 +86,7 @@
   }
 
   .drawing-tools {
-    bottom: 5.5rem;
+    bottom: 1.5rem;
     right: 1.5rem;
     left: auto;
     z-index: 10;
@@ -123,9 +123,9 @@
   }
 
   .basemap-switcher {
-    bottom: 1.5rem;
-    left: 1.5rem;
-    right: auto;
+    bottom: 5.5rem;
+    left: auto;
+    right: 1.5rem;
     z-index: 10;
   }
   .basemap-switcher.ol-control {

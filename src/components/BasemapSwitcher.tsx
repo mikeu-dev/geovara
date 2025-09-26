@@ -62,7 +62,7 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
     <div ref={controlRef} className="basemap-switcher ol-control ol-unselectable">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className='w-10 h-10 bg-card/80'>
+          <Button variant="outline" size="icon" className='bg-card/80'>
             <Layers className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
