@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 
 const ValidateGeoJSONInputSchema = z.string().describe('The GeoJSON string to validate.');
 export type ValidateGeoJSONInput = z.infer<typeof ValidateGeoJSONInputSchema>;
@@ -32,7 +32,7 @@ const validateGeoJSONPrompt = ai.definePrompt({
 
   Here is the GeoJSON to validate:
   \`\`\`
-  {{{input}}
+  {{{input}}}
   \`\`\`
 
   Respond in JSON format.  Set isValid to true if the GeoJSON is valid, and false otherwise.
@@ -47,7 +47,7 @@ const validateGeoJSONFlow = ai.defineFlow(
     outputSchema: ValidateGeoJSONOutputSchema,
   },
   async input => {
-    const {output} = await validateGeoJSONPrompt({input: input});
+    const {output} = await validateGeoJSONPrompt(input);
     return output!;
   }
 );
