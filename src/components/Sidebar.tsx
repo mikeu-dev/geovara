@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/tooltip"
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles, Sun, Moon } from 'lucide-react';
+import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles, Sun, Moon, Check } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { Skeleton } from './ui/skeleton';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -27,6 +27,7 @@ import KML from 'ol/format/KML';
 import JSZip from 'jszip';
 import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
+import { Button } from './ui/button';
 
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -56,6 +57,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
   const [validationFeedback, setValidationFeedback] = useState('');
   const [theme, setTheme] = useState('light');
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -82,6 +84,31 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
     onClear();
     setValidationStatus('idle');
     setValidationFeedback('');
+  };
+  
+  const handleCopy = () => {
+    if (!geojsonString) {
+      toast({
+        variant: 'destructive',
+        title: 'Nothing to copy',
+        description: 'The editor is empty.',
+      });
+      return;
+    }
+    navigator.clipboard.writeText(geojsonString).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+      toast({
+        title: 'Copied to clipboard!',
+      });
+    }, (err) => {
+      console.error('Could not copy text: ', err);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to copy',
+        description: 'Could not copy GeoJSON to clipboard.',
+      });
+    });
   };
 
   const handleValidate = async () => {
@@ -257,6 +284,25 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
               </TooltipProvider>
 
               <div className="relative flex-grow w-full rounded-md border border-input overflow-hidden">
+                {geojsonString && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 z-10 h-7 w-7"
+                          onClick={handleCopy}
+                        >
+                          {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 <Editor
                   height="100%"
                   language="json"
