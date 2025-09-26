@@ -10,9 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
+import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Pilcrow, Sparkles } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { Skeleton } from './ui/skeleton';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -20,6 +20,15 @@ import KML from 'ol/format/KML';
 import JSZip from 'jszip';
 import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from "@/components/ui/menubar"
+
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -163,43 +172,42 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
         <Separator className="my-0" />
         <div className="flex flex-col flex-grow p-4 min-h-0">
           <Card className="flex flex-col flex-grow">
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle className="text-lg">GeoJSON Output</CardTitle>
-                    <div className="flex items-center gap-2">
-                       <Button variant="outline" size="sm" onClick={handleClear} disabled={featuresCount === 0}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Clear
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={handleValidate} disabled={!geojsonString}>
-                        {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Validate'}
-                      </Button>
-                      <Button variant="secondary" size="icon" onClick={handleCopy} disabled={!geojsonString}>
-                          <Copy className="h-4 w-4" />
-                          <span className="sr-only">Copy GeoJSON</span>
-                      </Button>
-                       <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm" disabled={!geojsonString}>
-                              Save
-                              <ChevronDown className="h-4 w-4 ml-2" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleDownload('geojson')}>
-                              Save as GeoJSON
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload('kml')}>
-                              Save as KML
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDownload('kmz')}>
-                              Save as KMZ
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col">
+            <CardContent className="flex-grow flex flex-col pt-4">
+              <Menubar className="mb-2 h-auto p-1">
+                <MenubarMenu>
+                  <MenubarTrigger className="flex-1 justify-center" disabled={featuresCount === 0} onClick={handleClear}>
+                    <Trash2 className="h-4 w-4 mr-2" />Clear
+                  </MenubarTrigger>
+                </MenubarMenu>
+                 <MenubarMenu>
+                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString} onClick={handleValidate}>
+                    {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                    Validate
+                  </MenubarTrigger>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString} onClick={handleCopy}>
+                    <Copy className="h-4 w-4 mr-2" />Copy
+                  </MenubarTrigger>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString}>
+                    <FileDown className="h-4 w-4 mr-2" />Save
+                  </MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem onClick={() => handleDownload('geojson')}>
+                      Save as GeoJSON
+                    </MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('kml')}>
+                      Save as KML
+                    </MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('kmz')}>
+                      Save as KMZ
+                    </MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+              </Menubar>
+
               <div className="relative flex-grow w-full rounded-md border border-input overflow-hidden">
                 <Editor
                   height="100%"
