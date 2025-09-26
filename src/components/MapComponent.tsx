@@ -7,7 +7,7 @@ import OSM from 'ol/source/OSM';
 import { fromLonLat, get as getProjection } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import { Draw, Modify, Select } from 'ol/interaction';
+import { DragAndDrop, Draw, Modify, Select } from 'ol/interaction';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
@@ -21,6 +21,8 @@ import {
   ScaleLine,
   Zoom,
 } from 'ol/control';
+import GeoJSON from 'ol/format/GeoJSON';
+import type { VectorSourceEvent } from 'ol/source/Vector';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
@@ -129,6 +131,31 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         attribution,
       ]),
     });
+
+    const dragAndDropInteraction = new DragAndDrop({
+      formatConstructors: [
+        new GeoJSON({
+          featureProjection: 'EPSG:3857',
+          dataProjection: 'EPSG:4326',
+        })
+      ],
+    });
+
+    dragAndDropInteraction.on('addfeatures', (event) => {
+      const dropSource = (event as VectorSourceEvent).target as VectorSource<Geometry>;
+      const droppedFeatures = dropSource.getFeatures();
+      
+      const newFeaturesWithId = droppedFeatures.map((f, i) => {
+        if (!f.getId()) {
+          f.setId(`dropped_feature_${Date.now()}_${i}`);
+        }
+        return f;
+      })
+
+      setFeatures(prev => [...prev, ...newFeaturesWithId]);
+      dropSource.clear(); // Clear the source of the drag-and-drop interaction
+    });
+    mapInstance.current.addInteraction(dragAndDropInteraction);
 
     modifyInteraction.current = new Modify({ 
       source: vectorSource.current ,
