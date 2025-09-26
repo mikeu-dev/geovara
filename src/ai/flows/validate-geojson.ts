@@ -31,9 +31,7 @@ const validateGeoJSONPrompt = ai.definePrompt({
   prompt: `You are a strict GeoJSON validator. Your job is to validate the provided text against the GeoJSON specification (RFC 7946).
 
 Here is the GeoJSON to validate:
-\`\`\`json
 {{{input}}}
-\`\`\`
 
 Respond in JSON format.
 - Set 'isValid' to true if the GeoJSON is perfectly valid according to RFC 7946.
