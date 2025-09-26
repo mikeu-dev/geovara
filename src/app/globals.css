@@ -132,16 +132,11 @@
   }
 
   .basemap-switcher.ol-control {
-    background-color: hsla(var(--card) / 0.8);
+    background-color: transparent;
     backdrop-filter: blur(4px);
     border-radius: var(--radius);
     position: static;
     width: fit-content;
   }
 
-  /* Cesium attribution */
-  .cesium-widget-credits {
-    @apply text-xs bg-background/50 text-foreground rounded-md p-1;
-    display: block !important;
-  }
 }

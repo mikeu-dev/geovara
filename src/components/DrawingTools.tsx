@@ -6,7 +6,7 @@ import type { Map } from 'ol';
 import type { DrawType } from '@/app/page';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Globe, Map as MapIcon } from 'lucide-react';
+import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2 } from 'lucide-react';
 import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
@@ -29,7 +29,6 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
   useEffect(() => {
     if (!map || !controlRef.current) return;
 
-    // Create the control only once and store it in a ref
     if (!customControlRef.current) {
         customControlRef.current = new Control({
             element: controlRef.current,
@@ -38,14 +37,12 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
     
     const customControl = customControlRef.current;
 
-    // Add control if it's not already on the map
     const isControlAdded = map.getControls().getArray().includes(customControl);
     if (!isControlAdded) {
         map.addControl(customControl);
     }
 
     return () => {
-        // On cleanup, remove the control if it exists on the map and if map exists
         if (map && map.getControls().getArray().includes(customControl)) {
             map.removeControl(customControl);
         }
@@ -58,7 +55,7 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
 
   return (
     <div ref={controlRef} className="drawing-tools ol-control ol-unselectable">
-       <div className='flex flex-col gap-2'>
+       <div className='flex flex-col items-center gap-2'>
         <MapModeToggle is3d={is3d} onToggle3d={onToggle3d} />
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
       </div>

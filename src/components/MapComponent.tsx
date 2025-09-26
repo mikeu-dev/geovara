@@ -24,7 +24,6 @@ import GeoJSON from 'ol/format/GeoJSON';
 import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import type { XYZ } from 'ol/source';
-import CesiumController from './CesiumController';
 import { useToast } from '@/hooks/use-toast';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
@@ -375,17 +374,19 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   }
 
   const handleToggle3d = () => {
-    setIs3d(prev => !prev);
-    const message = !is3d ? "Entering 3D mode. Drawing and editing are disabled." : "Exiting 3D mode.";
-    toast({
-        title: message,
-        duration: 3000,
-    });
+    // For now, just a placeholder.
+    const newIs3d = !is3d;
+    setIs3d(newIs3d);
+    if (newIs3d) {
+        toast({
+            title: "3D mode is under development.",
+            duration: 3000,
+        });
+    }
   }
 
   return (
     <div ref={mapRef} className="w-full h-full relative">
-      <CesiumController map={mapInstance.current} enabled={is3d} />
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} tileLayer={tileLayer} is3d={is3d} onToggle3d={handleToggle3d} />
       <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (

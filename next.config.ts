@@ -1,5 +1,4 @@
 import type {NextConfig} from 'next';
-import path from 'path';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -31,28 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
-    // Exclude Cesium from webpack processing
-    config.externals.push('cesium', 'ol-cesium');
-
-    // Resolve Cesium module
-    config.resolve.alias['cesium'] = path.resolve(__dirname, 'node_modules/cesium/Source');
-
-    // Tell Cesium to use the correct asset path
-    config.plugins.push(
-      new (require('webpack').DefinePlugin)({
-        CESIUM_BASE_URL: JSON.stringify('/cesium'),
-      })
-    );
-
-    // Fix for "Attempted import error: 'scrypt' is not exported from 'crypto'"
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      crypto: false,
-    };
-
-    return config;
-  }
 };
 
 export default nextConfig;

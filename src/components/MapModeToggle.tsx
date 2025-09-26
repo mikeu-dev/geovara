@@ -35,18 +35,19 @@ export default function MapModeToggle({ is3d, onToggle3d }: MapModeToggleProps) 
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Toggle
+             <Toggle
               size="sm"
               className='w-[2.25rem] h-[2.25rem]'
               aria-label="Toggle 3D Mode"
               pressed={is3d}
               onPressedChange={!is3d ? onToggle3d : undefined}
+              disabled={true} // Disable the 3D toggle
             >
               <Globe className="h-4 w-4" />
             </Toggle>
           </TooltipTrigger>
           <TooltipContent side='right'>
-            <p>3D Mode</p>
+            <p>3D Mode (under development)</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
