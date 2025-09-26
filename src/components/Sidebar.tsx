@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/tooltip"
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles } from 'lucide-react';
+import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles, Sun, Moon } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { Skeleton } from './ui/skeleton';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -55,6 +55,28 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
   const [validationFeedback, setValidationFeedback] = useState('');
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    setTheme(initialTheme);
+    if (initialTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const handleThemeToggle = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const handleCopy = useCallback(() => {
     if (!geojsonString) return;
@@ -189,6 +211,21 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                   </div>
                   <div className="flex items-center">
                     <MenubarMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                            <MenubarTrigger className="w-9 h-9" onClick={handleThemeToggle}>
+                                {theme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                            </MenubarTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p>Toggle Theme</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </MenubarMenu>
+
+                    <MenubarSeparator orientation="vertical" className="h-6 mx-1" />
+
+                    <MenubarMenu>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleCopy}>
@@ -213,8 +250,6 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                       </Tooltip>
                     </MenubarMenu>
 
-                    <MenubarSeparator />
-                    
                     <MenubarMenu>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -248,7 +283,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                   language="json"
                   value={geojsonString}
                   onChange={onGeojsonChange}
-                  theme="vs-dark"
+                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 12,
