@@ -21,24 +21,32 @@ interface DrawingToolsProps {
 
 export default function DrawingTools({ map, drawType, setDrawType, featuresCount, tileLayer }: DrawingToolsProps) {
   const controlRef = useRef<HTMLDivElement>(null);
+  const customControlRef = useRef<Control | null>(null);
   
   useEffect(() => {
-    if (map && controlRef.current) {
-      const customControl = new Control({
-        element: controlRef.current,
-      });
-      // Check if control is already on the map
-      const isControlAdded = map.getControls().getArray().some(control => control === customControl);
-      if (!isControlAdded) {
-        map.addControl(customControl);
-      }
+    if (!map || !controlRef.current) return;
 
-      return () => {
-        if (map.getControls().getArray().some(control => control === customControl)) {
-          map.removeControl(customControl);
-        }
-      };
+    // Create the control only once and store it in a ref
+    if (!customControlRef.current) {
+        customControlRef.current = new Control({
+            element: controlRef.current,
+        });
     }
+    
+    const customControl = customControlRef.current;
+
+    // Add control if it's not already on the map
+    const isControlAdded = map.getControls().getArray().includes(customControl);
+    if (!isControlAdded) {
+        map.addControl(customControl);
+    }
+
+    return () => {
+        // On cleanup, remove the control if it exists on the map
+        if (map.getControls().getArray().includes(customControl)) {
+            map.removeControl(customControl);
+        }
+    };
   }, [map]);
   
   const handleDrawTypeChange = (type: DrawType) => {
