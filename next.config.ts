@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
+    // Exclude Cesium from webpack processing
+    config.externals.push('cesium', 'ol-cesium');
+
     // Resolve Cesium module
     config.resolve.alias['cesium'] = path.resolve(__dirname, 'node_modules/cesium/Source');
 
