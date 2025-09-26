@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Trash2, Plus, GripVertical } from 'lucide-react';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { cn } from '@/lib/utils';
 
 interface FeaturePropertiesPopupProps {
   feature: Feature<Geometry>;
@@ -120,6 +121,8 @@ export default function FeaturePropertiesPopup({
     }
     setProperties(newProperties);
   };
+  
+  const isColorProperty = (key: string) => ['fill', 'stroke'].includes(key.toLowerCase());
 
 
   return (
@@ -146,11 +149,24 @@ export default function FeaturePropertiesPopup({
                       }
                   }}
                 />
-                <Input
-                  defaultValue={typeof value === 'object' ? JSON.stringify(value) : value}
-                  className="text-xs"
-                  onBlur={(e) => handlePropertyValueChange(key, e.target.value)}
-                />
+                {isColorProperty(key) ? (
+                   <div className="relative flex items-center h-10 w-full">
+                     <Input
+                       type="color"
+                       defaultValue={value || '#000000'}
+                       className="absolute inset-0 w-full h-full p-0 border-none appearance-none"
+                       onBlur={(e) => handlePropertyValueChange(key, e.target.value)}
+                       onChange={(e) => handlePropertyValueChange(key, e.target.value)}
+                     />
+                     <div className="w-full text-sm px-3 py-2 pointer-events-none">{value}</div>
+                   </div>
+                ) : (
+                    <Input
+                      defaultValue={typeof value === 'object' ? JSON.stringify(value) : value}
+                      className="text-xs"
+                      onBlur={(e) => handlePropertyValueChange(key, e.target.value)}
+                    />
+                )}
                 <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => handleRemoveProperty(key)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
