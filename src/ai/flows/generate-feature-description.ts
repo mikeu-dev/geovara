@@ -13,7 +13,13 @@ import {z} from 'genkit';
 import {GeoJsonObject} from 'geojson';
 
 const GenerateFeatureDescriptionInputSchema = z.object({
-  feature: z.any().describe('The GeoJSON feature to describe.'),
+  feature: z
+    .object({
+      type: z.string(),
+      geometry: z.any(),
+      properties: z.any(),
+    })
+    .describe('The GeoJSON feature to describe.'),
 });
 export type GenerateFeatureDescriptionInput = z.infer<
   typeof GenerateFeatureDescriptionInputSchema
@@ -39,7 +45,10 @@ const prompt = ai.definePrompt({
   prompt: `You are a helpful assistant that generates a concise description of a GeoJSON feature.
 
   Given the following GeoJSON feature, create a short, informative description of what it represents.
-  Feature: {{{feature}}}
+  Feature:
+  \`\`\`json
+  {{{JSON.stringify feature}}}
+  \`\`\`
   `,
 });
 

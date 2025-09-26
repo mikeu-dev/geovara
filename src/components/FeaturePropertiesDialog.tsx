@@ -67,7 +67,7 @@ export default function FeaturePropertiesDialog({
         geometry: feature.getGeometry()?.getType(),
         properties: { name: feature.get('name') },
       };
-      const result = await generateFeatureDescription({ feature: JSON.stringify(featureObject) });
+      const result = await generateFeatureDescription({ feature: featureObject });
       onPropertyChange('description', result.description);
       setDescription(result.description);
       toast({
@@ -79,7 +79,7 @@ export default function FeaturePropertiesDialog({
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to generate a description.',
+        description: 'Failed to generate a description. The service may be temporarily unavailable.',
       });
     } finally {
       setIsGeneratingDesc(false);
