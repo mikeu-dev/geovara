@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import type { Map } from 'ol';
-import OLCesium from 'ol-cesium';
 import { createWorldTerrainAsync, Cesium3DTileset } from 'cesium';
+
+// Use require for CommonJS modules like ol-cesium
+const OLCesium = require('ol-cesium');
 
 interface CesiumControllerProps {
   map: Map | null;
@@ -11,7 +13,7 @@ interface CesiumControllerProps {
 }
 
 export default function CesiumController({ map, enabled }: CesiumControllerProps) {
-  const ol3d = useRef<OLCesium | null>(null);
+  const ol3d = useRef<any | null>(null);
 
   useEffect(() => {
     if (!map) return;
