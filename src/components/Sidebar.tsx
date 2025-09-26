@@ -1,0 +1,149 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Copy, MapPin, Spline, Rectangle, Trash2, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { validateGeoJSON } from '@/ai/flows/validate-geojson';
+import type { DrawType } from '@/app/page';
+
+interface SidebarProps {
+    drawType: DrawType | null;
+    setDrawType: (type: DrawType | null) => void;
+    geojsonString: string;
+    featuresCount: number;
+    onClear: () => void;
+}
+
+export default function Sidebar({ drawType, setDrawType, geojsonString, featuresCount, onClear }: SidebarProps) {
+  const { toast } = useToast();
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
+  const [validationFeedback, setValidationFeedback] = useState('');
+
+  const handleCopy = useCallback(() => {
+    if (!geojsonString) return;
+    navigator.clipboard.writeText(geojsonString);
+    toast({
+      title: 'Copied to Clipboard!',
+      description: 'The GeoJSON has been copied to your clipboard.',
+    });
+  }, [geojsonString, toast]);
+  
+  const handleClear = () => {
+    onClear();
+    setValidationStatus('idle');
+    setValidationFeedback('');
+  };
+
+  const handleValidate = async () => {
+    if (!geojsonString) {
+      toast({
+        variant: 'destructive',
+        title: 'Empty GeoJSON',
+        description: 'There is nothing to validate.',
+      });
+      return;
+    }
+    setValidationStatus('loading');
+    setValidationFeedback('Validating with AI...');
+    try {
+      const result = await validateGeoJSON(geojsonString);
+      setValidationStatus(result.isValid ? 'valid' : 'invalid');
+      setValidationFeedback(result.feedback);
+      toast({
+        title: result.isValid ? 'Validation Successful' : 'Validation Failed',
+        description: result.feedback,
+        variant: result.isValid ? 'default' : 'destructive',
+        duration: 9000
+      });
+    } catch (error) {
+      console.error('Validation error:', error);
+      setValidationStatus('invalid');
+      setValidationFeedback('An unexpected error occurred during validation.');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to communicate with the validation service.',
+      });
+    }
+  };
+  
+  // Allows toggling the draw mode on/off
+  const handleDrawTypeChange = (value: DrawType) => {
+    setDrawType(drawType === value ? null : value);
+  };
+  
+  return (
+      <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto">
+        <div className="p-4 border-b border-border">
+          <h1 className="text-2xl font-bold font-headline">GeoDraw</h1>
+          <p className="text-muted-foreground">Draw on the map, get GeoJSON.</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">Drawing Tools</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <ToggleGroup 
+                type="single" 
+                value={drawType ?? ''} 
+                onValueChange={(value: DrawType) => handleDrawTypeChange(value)}
+                className="w-full grid grid-cols-3"
+              >
+                <ToggleGroupItem value="Point" aria-label="Draw a point" className="flex-1 gap-2">
+                  <MapPin className="h-4 w-4" /> <span className="hidden sm:inline">Point</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="LineString" aria-label="Draw a line" className="flex-1 gap-2">
+                  <Spline className="h-4 w-4" /> <span className="hidden sm:inline">Line</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="Polygon" aria-label="Draw a polygon" className="flex-1 gap-2">
+                  <Rectangle className="h-4 w-4" /> <span className="hidden sm:inline">Polygon</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Button variant="outline" onClick={handleClear} disabled={featuresCount === 0}>
+                <Trash2 className="h-4 w-4 mr-2" /> Clear All
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex flex-col flex-grow p-4 pt-0 min-h-0">
+          <Card className="flex flex-col flex-grow">
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">GeoJSON Output</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" size="sm" onClick={handleValidate} disabled={!geojsonString}>
+                        {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Validate'}
+                      </Button>
+                      <Button variant="secondary" size="icon" onClick={handleCopy} disabled={!geojsonString}>
+                          <Copy className="h-4 w-4" />
+                          <span className="sr-only">Copy GeoJSON</span>
+                      </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col">
+              <Textarea
+                readOnly
+                value={geojsonString}
+                placeholder="Draw on the map to see GeoJSON output here..."
+                className="flex-grow w-full resize-none font-code text-xs"
+              />
+              {validationStatus !== 'idle' && (
+                <div className="mt-2 p-2 rounded-md bg-muted/50 text-muted-foreground text-xs flex items-start gap-2">
+                    {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
+                    {validationStatus === 'valid' && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />}
+                    {validationStatus === 'invalid' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-500 mt-0.5 flex-shrink-0" />}
+                    <p className="break-words min-w-0">{validationFeedback}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </aside>
+  );
+}
