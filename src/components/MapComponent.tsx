@@ -325,6 +325,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   return (
     <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
+      <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (
          <FeaturePropertiesPopup
            feature={selectedFeature}
@@ -333,9 +334,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
            onOpenChange={handlePopupClose}
          >
            {/* This is a dummy trigger, the popover is controlled programmatically */}
-           <div ref={popupRef}></div>
+           <div></div>
          </FeaturePropertiesPopup>
-      )}
+       )}
+      </div>
     </div>
   );
 }

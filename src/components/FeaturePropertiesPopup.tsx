@@ -69,7 +69,7 @@ export default function FeaturePropertiesPopup({
   return (
     <Popover open={true} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <PopoverContent className="w-80" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={() => onOpenChange(false)}>
         <div className="grid gap-4">
           <div className="space-y-2">
             <h4 className="font-medium leading-none">Feature Properties</h4>
