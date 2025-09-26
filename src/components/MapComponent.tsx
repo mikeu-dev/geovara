@@ -23,6 +23,7 @@ import {
 import GeoJSON from 'ol/format/GeoJSON';
 import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
+import BasemapSwitcher from './BasemapSwitcher';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
 
@@ -129,6 +130,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   const drawInteraction = useRef<Draw | null>(null);
   const selectInteraction = useRef<Select | null>(null);
   const modifyInteraction = useRef<Modify | null>(null);
+  const tileLayer = useRef<TileLayer<OSM> | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
 
 
@@ -151,6 +153,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
+    tileLayer.current = new TileLayer({
+        source: new OSM(),
+    });
+    
     const vectorLayer = new VectorLayer({
       source: vectorSource.current,
       style: styleFunction
@@ -172,9 +178,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     mapInstance.current = new Map({
       target: mapRef.current,
       layers: [
-        new TileLayer({
-          source: new OSM(),
-        }),
+        tileLayer.current,
         vectorLayer,
       ],
       overlays: [popupOverlay],
@@ -369,6 +373,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   return (
     <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} />
+      {tileLayer.current && <BasemapSwitcher tileLayer={tileLayer.current} map={mapInstance.current} />}
       <div ref={popupRef} className="ol-popup">
        {isPopupOpen && selectedFeature && (
          <FeaturePropertiesPopup

@@ -121,4 +121,16 @@
     background-color: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
   }
+
+  .basemap-switcher {
+    bottom: 1.5rem;
+    left: 1.5rem;
+    right: auto;
+    z-index: 10;
+  }
+  .basemap-switcher.ol-control {
+    background-color: hsla(var(--card) / 0.8);
+    backdrop-filter: blur(4px);
+    border-radius: var(--radius);
+  }
 }
