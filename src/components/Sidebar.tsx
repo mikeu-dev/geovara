@@ -3,23 +3,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Pilcrow, Sparkles } from 'lucide-react';
-import { validateGeoJSON } from '@/ai/flows/validate-geojson';
-import { Skeleton } from './ui/skeleton';
-import GeoJSON from 'ol/format/GeoJSON';
-import KML from 'ol/format/KML';
-import JSZip from 'jszip';
-import { Feature } from 'ol';
-import { Geometry } from 'ol/geom';
 import {
   Menubar,
   MenubarContent,
@@ -28,6 +11,22 @@ import {
   MenubarSeparator,
   MenubarTrigger,
 } from "@/components/ui/menubar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+import { Card, CardContent } from '@/components/ui/card';
+import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles } from 'lucide-react';
+import { validateGeoJSON } from '@/ai/flows/validate-geojson';
+import { Skeleton } from './ui/skeleton';
+import GeoJSON from 'ol/format/GeoJSON';
+import KML from 'ol/format/KML';
+import JSZip from 'jszip';
+import { Feature } from 'ol';
+import { Geometry } from 'ol/geom';
 
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -169,44 +168,79 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
           <h1 className="text-2xl font-bold font-headline">GeoDraw</h1>
           <p className="text-muted-foreground">Draw on the map, get GeoJSON.</p>
         </div>
-        <Separator className="my-0" />
         <div className="flex flex-col flex-grow p-4 min-h-0">
           <Card className="flex flex-col flex-grow">
             <CardContent className="flex-grow flex flex-col pt-4">
-              <Menubar className="mb-2 h-auto p-1">
-                <MenubarMenu>
-                  <MenubarTrigger className="flex-1 justify-center" disabled={featuresCount === 0} onClick={handleClear}>
-                    <Trash2 className="h-4 w-4 mr-2" />Clear
-                  </MenubarTrigger>
-                </MenubarMenu>
-                 <MenubarMenu>
-                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString} onClick={handleValidate}>
-                    {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                    Validate
-                  </MenubarTrigger>
-                </MenubarMenu>
-                <MenubarMenu>
-                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString} onClick={handleCopy}>
-                    <Copy className="h-4 w-4 mr-2" />Copy
-                  </MenubarTrigger>
-                </MenubarMenu>
-                <MenubarMenu>
-                  <MenubarTrigger className="flex-1 justify-center" disabled={!geojsonString}>
-                    <FileDown className="h-4 w-4 mr-2" />Save
-                  </MenubarTrigger>
-                  <MenubarContent>
-                    <MenubarItem onClick={() => handleDownload('geojson')}>
-                      Save as GeoJSON
-                    </MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('kml')}>
-                      Save as KML
-                    </MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('kmz')}>
-                      Save as KMZ
-                    </MenubarItem>
-                  </MenubarContent>
-                </MenubarMenu>
-              </Menubar>
+               <TooltipProvider>
+                <Menubar className="mb-2 h-auto p-1 justify-between">
+                  <div className="flex">
+                    <MenubarMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <MenubarTrigger className="w-9 h-9" disabled={featuresCount === 0} onClick={handleClear}>
+                            <Trash2 className="h-4 w-4" />
+                          </MenubarTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clear All</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </MenubarMenu>
+                  </div>
+                  <div className="flex items-center">
+                    <MenubarMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleCopy}>
+                            <Copy className="h-4 w-4" />
+                          </MenubarTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copy GeoJSON</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </MenubarMenu>
+                    <MenubarMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleValidate}>
+                            {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                          </MenubarTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Validate GeoJSON</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </MenubarMenu>
+
+                    <MenubarSeparator />
+                    
+                    <MenubarMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString}>
+                            <FileDown className="h-4 w-4" />
+                          </MenubarTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Save File</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <MenubarContent>
+                        <MenubarItem onClick={() => handleDownload('geojson')}>
+                          Save as GeoJSON
+                        </MenubarItem>
+                        <MenubarItem onClick={() => handleDownload('kml')}>
+                          Save as KML
+                        </MenubarItem>
+                        <MenubarItem onClick={() => handleDownload('kmz')}>
+                          Save as KMZ
+                        </MenubarItem>
+                      </MenubarContent>
+                    </MenubarMenu>
+                  </div>
+                </Menubar>
+              </TooltipProvider>
 
               <div className="relative flex-grow w-full rounded-md border border-input overflow-hidden">
                 <Editor
