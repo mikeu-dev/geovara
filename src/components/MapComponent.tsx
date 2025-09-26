@@ -173,11 +173,16 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   
   useEffect(() => {
     if (!mapInstance.current) return;
-
+  
     if (drawInteraction.current) {
       mapInstance.current.removeInteraction(drawInteraction.current);
+      drawInteraction.current = null;
     }
-
+  
+    if (selectInteraction.current) {
+      selectInteraction.current.setActive(!drawType);
+    }
+  
     if (drawType) {
       selectInteraction.current?.getFeatures().clear();
       onFeatureSelect(null);
@@ -186,7 +191,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         source: vectorSource.current,
         type: drawType,
       });
-
+  
       drawInteraction.current.on('drawend', (e: DrawEvent) => {
         const newFeature = e.feature;
         const id = `${drawType}_${Date.now()}`;
@@ -194,13 +199,15 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         
         newFeature.set('name', `New ${drawType}`);
         newFeature.set('description', '');
-
+  
         setFeatures((prev) => [...prev, newFeature]);
-        setDrawType(null);
+        setDrawType(null); // This will trigger the useEffect again, re-enabling select
+        onFeatureSelect(newFeature); // Select the feature to show the dialog
       });
       
       mapInstance.current.addInteraction(drawInteraction.current);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawType, setFeatures, onFeatureSelect, setDrawType]);
 
   useEffect(() => {
@@ -210,7 +217,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     const featuresInStateIds = features.map(f => f.getId());
     const featuresInSource = source.getFeatures();
     
-    const featuresToRemoveFromSource = featuresInSource.filter(f => !featuresInStateIds.includes(f.getId()));
+    const featuresToRemoveFromSource = featuresInSource.filter(f => {
+        const id = f.getId();
+        return id !== undefined && !featuresInStateIds.includes(id);
+    });
     featuresToRemoveFromSource.forEach(f => {
         if (f.getId() && source.getFeatureById(f.getId()!)) {
             source.removeFeature(f)
@@ -225,7 +235,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     
     source.changed();
 
-  }, [features, selectedFeature]);
+  }, [features]);
   
   useEffect(() => {
       if (selectInteraction.current) {
