@@ -199,13 +199,13 @@ export default function MapComponent({ features, setFeatures, drawType, selected
     
     const featuresToRemoveFromSource = featuresInSource.filter(f => !featuresInStateIds.includes(f.getId()));
     featuresToRemoveFromSource.forEach(f => {
-        if (source.getFeatureById(f.getId()!)) {
+        if (f.getId() && source.getFeatureById(f.getId()!)) {
             source.removeFeature(f)
         }
     });
 
     features.forEach(feature => {
-      if (!source.getFeatureById(feature.getId()!)) {
+      if (feature.getId() && !source.getFeatureById(feature.getId()!)) {
         source.addFeature(feature);
       }
     });
@@ -219,7 +219,7 @@ export default function MapComponent({ features, setFeatures, drawType, selected
       if (selectInteraction.current) {
         const selectedFeaturesCollection = selectInteraction.current.getFeatures();
         selectedFeaturesCollection.clear();
-        if (selectedFeature) {
+        if (selectedFeature && selectedFeature.getId()) {
             const featureInSource = vectorSource.current.getFeatureById(selectedFeature.getId()!);
             if (featureInSource) {
                 selectedFeaturesCollection.push(featureInSource);
