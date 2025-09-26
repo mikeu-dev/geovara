@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,11 +15,19 @@ import { generateFeatureDescription } from '@/ai/flows/generate-feature-descript
 import type { DrawType } from '@/app/page';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { Skeleton } from './ui/skeleton';
+import { Textarea } from './ui/textarea';
+
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => <Skeleton className="w-full h-full" />,
+});
 
 interface SidebarProps {
     drawType: DrawType | null;
     setDrawType: (type: DrawType | null) => void;
     geojsonString: string;
+    onGeojsonChange: (value: string | undefined) => void;
     featuresCount: number;
     onClear: () => void;
     selectedFeature: Feature<Geometry> | null;
@@ -27,7 +35,7 @@ interface SidebarProps {
     onFeaturePropertyChange: (key: string, value: any) => void;
 }
 
-export default function Sidebar({ drawType, setDrawType, geojsonString, featuresCount, onClear, selectedFeature, onDeleteSelected, onFeaturePropertyChange }: SidebarProps) {
+export default function Sidebar({ drawType, setDrawType, geojsonString, onGeojsonChange, featuresCount, onClear, selectedFeature, onDeleteSelected, onFeaturePropertyChange }: SidebarProps) {
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
   const [validationFeedback, setValidationFeedback] = useState('');
@@ -209,12 +217,22 @@ export default function Sidebar({ drawType, setDrawType, geojsonString, features
                 </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col">
-              <Textarea
-                readOnly
-                value={geojsonString}
-                placeholder="Draw on the map to see GeoJSON output here..."
-                className="flex-grow w-full resize-none font-code text-xs"
-              />
+              <div className="relative flex-grow w-full rounded-md border border-input overflow-hidden">
+                <Editor
+                  height="100%"
+                  language="json"
+                  value={geojsonString}
+                  onChange={onGeojsonChange}
+                  theme="vs-dark"
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 12,
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
+                />
+              </div>
               {validationStatus !== 'idle' && (
                 <div className="mt-2 p-2 rounded-md bg-muted/50 text-muted-foreground text-xs flex items-start gap-2">
                     {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
