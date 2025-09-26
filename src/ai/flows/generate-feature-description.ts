@@ -47,7 +47,7 @@ const prompt = ai.definePrompt({
   Given the following GeoJSON feature, create a short, informative description of what it represents.
   Feature:
   \`\`\`json
-  {{{JSON.stringify feature}}}
+  {{{feature}}}
   \`\`\`
   `,
 });
