@@ -13,9 +13,14 @@ import type { Geometry } from 'ol/geom';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 import type { DrawEvent } from 'ol/interaction/Draw';
 import type { ModifyEvent } from 'ol/interaction/Modify';
-import {get as getObjectFromRegistry} from 'ol/Object';
 import type { SelectEvent } from 'ol/interaction/Select';
-
+import DrawingTools from './DrawingTools';
+import {
+  defaults as defaultControls,
+  Attribution,
+  ScaleLine,
+  Zoom,
+} from 'ol/control';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle';
 
@@ -23,11 +28,12 @@ interface MapProps {
   features: Feature<Geometry>[];
   setFeatures: React.Dispatch<React.SetStateAction<Feature<Geometry>[]>>;
   drawType: DrawType | null;
+  setDrawType: React.Dispatch<React.SetStateAction<DrawType | null>>;
   selectedFeature: Feature<Geometry> | null;
-  setSelectedFeature: React.Dispatch<React.SetStateAction<Feature<Geometry> | null>>;
+  onFeatureSelect: (feature: Feature<Geometry> | null) => void;
 }
 
-export default function MapComponent({ features, setFeatures, drawType, selectedFeature, setSelectedFeature }: MapProps) {
+export default function MapComponent({ features, setFeatures, drawType, setDrawType, selectedFeature, onFeatureSelect }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<Map | null>(null);
   const vectorSource = useRef(new VectorSource());
@@ -100,6 +106,10 @@ export default function MapComponent({ features, setFeatures, drawType, selected
       source: vectorSource.current,
       style: styleFunction
     });
+    
+    const attribution = new Attribution({
+      collapsible: false,
+    });
 
     mapInstance.current = new Map({
       target: mapRef.current,
@@ -114,7 +124,10 @@ export default function MapComponent({ features, setFeatures, drawType, selected
         zoom: 3,
         projection: getProjection('EPSG:3857')!,
       }),
-      controls: [],
+      controls: defaultControls({ attribution: false }).extend([
+        new Zoom(),
+        attribution,
+      ]),
     });
 
     modifyInteraction.current = new Modify({ source: vectorSource.current });
@@ -131,20 +144,20 @@ export default function MapComponent({ features, setFeatures, drawType, selected
 
     selectInteraction.current.on('select', (e: SelectEvent) => {
       if (e.selected.length > 0) {
-        setSelectedFeature(e.selected[0]);
+        onFeatureSelect(e.selected[0]);
       } else {
-        setSelectedFeature(null);
+        onFeatureSelect(null);
       }
     });
 
     const handleDelete = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFeature) {
         const selectedFeatures = selectInteraction.current?.getFeatures();
         if (selectedFeatures && selectedFeatures.getLength() > 0) {
           const idsToRemove = selectedFeatures.getArray().map(f => f.getId());
           setFeatures(prev => prev.filter(f => !idsToRemove.includes(f.getId())));
           selectedFeatures.clear();
-          setSelectedFeature(null);
+          onFeatureSelect(null);
         }
       }
     };
@@ -167,7 +180,7 @@ export default function MapComponent({ features, setFeatures, drawType, selected
 
     if (drawType) {
       selectInteraction.current?.getFeatures().clear();
-      setSelectedFeature(null);
+      onFeatureSelect(null);
       
       drawInteraction.current = new Draw({
         source: vectorSource.current,
@@ -179,16 +192,16 @@ export default function MapComponent({ features, setFeatures, drawType, selected
         const id = `${drawType}_${Date.now()}`;
         newFeature.setId(id);
         
-        // Add default properties
         newFeature.set('name', `New ${drawType}`);
         newFeature.set('description', '');
 
         setFeatures((prev) => [...prev, newFeature]);
+        onFeatureSelect(newFeature);
       });
       
       mapInstance.current.addInteraction(drawInteraction.current);
     }
-  }, [drawType, setFeatures, setSelectedFeature]);
+  }, [drawType, setFeatures, onFeatureSelect]);
 
   useEffect(() => {
     const source = vectorSource.current;
@@ -210,7 +223,6 @@ export default function MapComponent({ features, setFeatures, drawType, selected
       }
     });
     
-    // Force redraw of all features to update styles
     source.changed();
 
   }, [features, selectedFeature]);
@@ -229,5 +241,9 @@ export default function MapComponent({ features, setFeatures, drawType, selected
   }, [selectedFeature]);
 
 
-  return <div ref={mapRef} className="w-full h-full" />;
+  return (
+    <div ref={mapRef} className="w-full h-full">
+      <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} />
+    </div>
+  );
 }

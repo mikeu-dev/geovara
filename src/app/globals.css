@@ -67,10 +67,15 @@
     right: 1.5rem;
     left: auto;
   }
+  .ol-control {
+    background-color: transparent;
+  }
   .ol-control button {
     background-color: hsla(var(--card) / 0.8);
     color: hsl(var(--card-foreground));
     border-radius: var(--radius);
+    width: 2rem;
+    height: 2rem;
   }
   .ol-control button:hover {
     background-color: hsla(var(--accent) / 0.9);
@@ -78,5 +83,41 @@
   }
   .ol-attribution {
     @apply text-xs bg-background/50 text-foreground rounded-t-none rounded-b-none rounded-tl-md;
+  }
+
+  .drawing-tools {
+    top: 0.5rem;
+    right: 0.5rem;
+    left: auto;
+  }
+
+  .drawing-tools.ol-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--radius);
+    background-color: hsla(var(--card) / 0.8);
+    backdrop-filter: blur(4px);
+  }
+
+  .drawing-tools button {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(var(--card-foreground));
+    background-color: transparent;
+  }
+
+  .drawing-tools button:hover {
+    background-color: hsla(var(--secondary) / 0.8);
+    color: hsl(var(--secondary-foreground));
+  }
+  
+  .drawing-tools button[data-state='on'] {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
   }
 }

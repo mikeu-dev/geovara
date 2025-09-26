@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import GeoJSON from 'ol/format/GeoJSON';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
-import type { FeatureCollection } from 'geojson';
+import FeaturePropertiesDialog from '@/components/FeaturePropertiesDialog';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle';
@@ -28,6 +28,7 @@ export default function Home() {
   const [drawType, setDrawType] = useState<DrawType | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [geojsonString, setGeojsonString] = useState('');
+  const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -66,7 +67,6 @@ export default function Home() {
       const geojson_obj = JSON.parse(newGeojsonString);
       const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
 
-      // Assign unique IDs if they don't have one
       featuresFromGeojson.forEach((f, i) => {
         if (!f.getId()) {
           f.setId(`feature_${Date.now()}_${i}`);
@@ -88,41 +88,56 @@ export default function Home() {
     if (selectedFeature) {
       setFeatures(prev => prev.filter(f => f.getId() !== selectedFeature.getId()));
       setSelectedFeature(null);
+      setIsFeatureDialogOpen(false);
     }
   }, [selectedFeature]);
   
   const handleFeaturePropertyChange = useCallback((key: string, value: any) => {
     if (selectedFeature) {
       selectedFeature.set(key, value);
-      // Trigger a re-render by creating a new array
       setFeatures(prev => [...prev]);
     }
   }, [selectedFeature]);
 
+  const handleFeatureSelect = useCallback((feature: Feature<Geometry> | null) => {
+    setSelectedFeature(feature);
+    setIsFeatureDialogOpen(!!feature);
+  }, []);
+
+  const handleDialogClose = () => {
+    setIsFeatureDialogOpen(false);
+    setSelectedFeature(null);
+  }
+
   return (
     <main className="flex h-full flex-col md:flex-row bg-background text-foreground">
       <Sidebar 
-        drawType={drawType}
-        setDrawType={setDrawType}
         geojsonString={geojsonString}
         onGeojsonChange={handleGeojsonChange}
         featuresCount={features.length}
         onClear={handleClear}
-        selectedFeature={selectedFeature}
-        onDeleteSelected={handleDeleteSelected}
-        onFeaturePropertyChange={handleFeaturePropertyChange}
       />
-      <div className="flex-grow h-full w-full">
+      <div className="flex-grow h-full w-full relative">
         {isClient ? (
           <MapComponent 
             features={features} 
             setFeatures={setFeatures} 
-            drawType={drawType} 
+            drawType={drawType}
+            setDrawType={setDrawType}
             selectedFeature={selectedFeature}
-            setSelectedFeature={setSelectedFeature}
+            onFeatureSelect={handleFeatureSelect}
           />
         ) : <MapSkeleton />}
       </div>
+      {selectedFeature && (
+        <FeaturePropertiesDialog
+          isOpen={isFeatureDialogOpen}
+          onOpenChange={handleDialogClose}
+          feature={selectedFeature}
+          onDelete={handleDeleteSelected}
+          onPropertyChange={handleFeaturePropertyChange}
+        />
+      )}
     </main>
   );
 }
