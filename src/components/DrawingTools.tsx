@@ -43,13 +43,16 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
     
     const customControl = customControlRef.current;
 
+    // Check if control is already added to avoid duplicates
     const isControlAdded = map.getControls().getArray().includes(customControl);
     if (!isControlAdded) {
         map.addControl(customControl);
     }
 
     return () => {
-      if (map.getControls().getArray().includes(customControl)) {
+      // On cleanup, remove the control only if the map instance still exists
+      // and the control is part of the map's controls.
+      if (map && map.getControls().getArray().includes(customControl)) {
         map.removeControl(customControl);
       }
     };
