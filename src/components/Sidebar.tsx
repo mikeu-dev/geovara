@@ -215,20 +215,6 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
             <CardContent className="flex-grow flex flex-col pt-4">
                <TooltipProvider>
                 <Menubar className="mb-2 h-auto p-1 justify-between">
-                  <div className="flex">
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-9 h-9" disabled={featuresCount === 0} onClick={handleClear}>
-                            <Trash2 className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Clear All</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
-                  </div>
                   <div className="flex items-center">
                     <MenubarMenu>
                         <Tooltip>
@@ -293,21 +279,39 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                 <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
                     {geojsonString && (
                     <TooltipProvider>
-                        <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-2 right-2 z-10 h-7 w-7"
-                            onClick={handleCopy}
-                            >
-                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
-                        </TooltipContent>
-                        </Tooltip>
+                        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={handleClear}
+                                    disabled={featuresCount === 0}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Clear</p>
+                                </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={handleCopy}
+                                >
+                                {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
+                            </TooltipContent>
+                            </Tooltip>
+                        </div>
                     </TooltipProvider>
                     )}
                     <Editor
