@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Map, View, Overlay } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
-import { fromLonLat, get as getProjection } from 'ol/proj';
+import { fromLonLat, toLonLat, get as getProjection } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { DragAndDrop, Draw, Modify, Select } from 'ol/interaction';
@@ -26,6 +26,7 @@ import type { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import type { XYZ } from 'ol/source';
 import { useToast } from '@/hooks/use-toast';
+import { MapBrowserEvent } from 'ol';
 
 type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
 
@@ -145,6 +146,8 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [is3d, setIs3d] = useState(false);
   const { toast } = useToast();
+  const shouldUpdateHash = useRef(true);
+
 
   const styleFunction = (feature: Feature<Geometry>) => {
     const isSelected = selectedFeature && feature.getId() === selectedFeature.getId();
@@ -161,6 +164,35 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     const geomType = feature.getGeometry()?.getType();
     return defaultStyles[geomType as keyof typeof defaultStyles] || defaultStyles['Point'];
   };
+
+  const updateHash = useCallback(() => {
+    if (!mapInstance.current || !shouldUpdateHash.current) return;
+    const view = mapInstance.current.getView();
+    const center = toLonLat(view.getCenter()!);
+    const zoom = view.getZoom();
+    const hash = `#map=${zoom?.toFixed(2)}/${center[1].toFixed(2)}/${center[0].toFixed(2)}`;
+    // Use replaceState to avoid cluttering browser history
+    window.history.replaceState(null, '', hash);
+  }, []);
+
+  const updateViewFromHash = useCallback(() => {
+    const hash = window.location.hash.substring(1);
+    if (!mapInstance.current || !hash.startsWith('map=')) return;
+
+    const parts = hash.substring(4).split('/');
+    if (parts.length === 3) {
+      const zoom = parseFloat(parts[0]);
+      const lat = parseFloat(parts[1]);
+      const lon = parseFloat(parts[2]);
+      if (!isNaN(zoom) && !isNaN(lat) && !isNaN(lon)) {
+        const view = mapInstance.current.getView();
+        shouldUpdateHash.current = false; // Temporarily disable hash updates
+        view.setCenter(fromLonLat([lon, lat]));
+        view.setZoom(zoom);
+        setTimeout(() => { shouldUpdateHash.current = true; }, 500); // Re-enable after animation
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -181,9 +213,26 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     
     const popupOverlay = new Overlay({
       element: popupRef.current!,
-      autoPan: false, // Disable autoPan to allow manual dragging
+      autoPan: false,
       positioning: 'center-center',
     });
+
+    // Initialize view from hash or defaults
+    const hash = window.location.hash.substring(1);
+    let center = fromLonLat([10, 20]);
+    let zoom = 3;
+    if (hash.startsWith('map=')) {
+        const parts = hash.substring(4).split('/');
+        if (parts.length === 3) {
+            const parsedZoom = parseFloat(parts[0]);
+            const lat = parseFloat(parts[1]);
+            const lon = parseFloat(parts[2]);
+            if (!isNaN(parsedZoom) && !isNaN(lat) && !isNaN(lon)) {
+                zoom = parsedZoom;
+                center = fromLonLat([lon, lat]);
+            }
+        }
+    }
 
     mapInstance.current = new Map({
       target: mapRef.current,
@@ -193,8 +242,8 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       ],
       overlays: [popupOverlay],
       view: new View({
-        center: fromLonLat([10, 20]),
-        zoom: 3,
+        center: center,
+        zoom: zoom,
         projection: getProjection('EPSG:3857')!,
       }),
       controls: defaultControls({ attribution: false }).extend([
@@ -202,6 +251,9 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         attribution,
       ]),
     });
+    
+    mapInstance.current.on('moveend', updateHash);
+    window.addEventListener('hashchange', updateViewFromHash);
 
     const dragAndDropInteraction = new DragAndDrop({
       formatConstructors: [
@@ -268,8 +320,12 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
 
     return () => {
       document.removeEventListener('keydown', handleDelete);
-      mapInstance.current?.dispose();
-      mapInstance.current = null;
+      window.removeEventListener('hashchange', updateViewFromHash);
+      if (mapInstance.current) {
+        mapInstance.current.un('moveend', updateHash);
+        mapInstance.current.dispose();
+        mapInstance.current = null;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
