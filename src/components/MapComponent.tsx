@@ -344,17 +344,17 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   useEffect(() => {
       const overlay = mapInstance.current?.getOverlays().getArray()[0];
       if (isPopupOpen && selectedFeature && overlay) {
-        const geometry = selectedFeature.getGeometry();
+        const geometry = selectedFeature.getGeometry() as any; // Use any to access methods
         if(geometry) {
-            const coordinate = geometry.getCoordinates();
-             // For polygons, we get the interior point
-            if (geometry.getType() === 'Polygon' || geometry.getType() === 'MultiPolygon') {
+            const geometryType = geometry.getType();
+            if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
               overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
-            } else if (geometry.getType() === 'LineString') {
+            } else if (geometryType === 'LineString') {
                overlay.setPosition(geometry.getCoordinateAt(0.5));
-            }
-             else {
-              overlay.setPosition(coordinate as any);
+            } else if (geometryType === 'Circle') {
+              overlay.setPosition(geometry.getCenter());
+            } else {
+              overlay.setPosition(geometry.getCoordinates());
             }
         }
       } else {
