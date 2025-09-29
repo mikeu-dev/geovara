@@ -6,7 +6,7 @@ import type { Map } from 'ol';
 import type { DrawType } from '@/app/page';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2 } from 'lucide-react';
+import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Pentagon } from 'lucide-react';
 import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
@@ -43,9 +43,9 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
     }
 
     return () => {
-        if (map && map.getControls().getArray().includes(customControl)) {
-            map.removeControl(customControl);
-        }
+      if (map.getControls().getArray().includes(customControl)) {
+        map.removeControl(customControl);
+      }
     };
   }, [map]);
   
@@ -85,6 +85,13 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
               aria-label="Draw a polygon"
               pressed={drawType === 'Polygon'}
               onPressedChange={() => handleDrawTypeChange('Polygon')}
+          >
+              <Pentagon className="h-4 w-4" />
+          </Toggle>
+          <Toggle
+              aria-label="Draw a rectangle"
+              pressed={drawType === 'Rectangle'}
+              onPressedChange={() => handleDrawTypeChange('Rectangle')}
           >
               <Square className="h-4 w-4" />
           </Toggle>

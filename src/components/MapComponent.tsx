@@ -8,6 +8,7 @@ import { fromLonLat, get as getProjection } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import { DragAndDrop, Draw, Modify, Select } from 'ol/interaction';
+import { createBox } from 'ol/interaction/Draw';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
@@ -26,7 +27,7 @@ import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import type { XYZ } from 'ol/source';
 import { useToast } from '@/hooks/use-toast';
 
-type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
+type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -69,6 +70,15 @@ const defaultStyles = {
     }),
   }),
   'Polygon': new Style({
+    stroke: new Stroke({
+      color: 'hsl(180, 100%, 25%)',
+      width: 3,
+    }),
+    fill: new Fill({
+      color: 'hsla(180, 100%, 25%, 0.3)',
+    }),
+  }),
+  'Rectangle': new Style({
     stroke: new Stroke({
       color: 'hsl(180, 100%, 25%)',
       width: 3,
@@ -273,7 +283,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     }
     
     if (selectInteraction.current) {
-      const isDrawing = drawType && ['Point', 'LineString', 'Polygon', 'Circle'].includes(drawType);
+      const isDrawing = drawType && ['Point', 'LineString', 'Polygon', 'Rectangle', 'Circle'].includes(drawType);
       selectInteraction.current.setActive(!isDrawing);
     }
   
@@ -281,22 +291,31 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       modifyInteraction.current.setActive(drawType === 'Edit');
     }
   
-    if (drawType && ['Point', 'LineString', 'Polygon', 'Circle'].includes(drawType)) {
+    if (drawType && ['Point', 'LineString', 'Polygon', 'Rectangle', 'Circle'].includes(drawType)) {
       selectInteraction.current?.getFeatures().clear();
       onFeatureSelect(null);
       setIsPopupOpen(false);
       
-      drawInteraction.current = new Draw({
+      const drawOptions: any = {
         source: vectorSource.current,
-        type: drawType as 'Point' | 'LineString' | 'Polygon' | 'Circle',
-      });
+      };
+
+      if (drawType === 'Rectangle') {
+        drawOptions.type = 'Circle';
+        drawOptions.geometryFunction = createBox();
+      } else {
+        drawOptions.type = drawType as 'Point' | 'LineString' | 'Polygon' | 'Circle';
+      }
+
+      drawInteraction.current = new Draw(drawOptions);
   
       drawInteraction.current.on('drawend', (e: DrawEvent) => {
         const newFeature = e.feature;
         const id = `${drawType}_${Date.now()}`;
         newFeature.setId(id);
         
-        newFeature.set('name', `New ${drawType}`);
+        const finalDrawType = drawType === 'Rectangle' ? 'Polygon' : drawType;
+        newFeature.set('name', `New ${finalDrawType}`);
         newFeature.set('description', '');
   
         setFeatures((prev) => [...prev, newFeature]);

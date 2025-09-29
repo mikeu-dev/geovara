@@ -9,7 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
 
 
-export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Circle' | 'Edit' | 'Delete';
+export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
