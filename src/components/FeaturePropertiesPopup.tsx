@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, MouseEvent as ReactMouseEvent } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -39,11 +39,57 @@ export default function FeaturePropertiesPopup({
   onOpenChange,
 }: FeaturePropertiesPopupProps) {
   const [properties, setProperties] = useState(getSanitizedProperties(feature));
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const popupRef = useRef<HTMLDivElement>(null);
 
-  // When the feature changes, update the properties in the state
+
+  // When the feature changes, update the properties and reset position
   useEffect(() => {
     setProperties(getSanitizedProperties(feature));
+    setPosition({ x: 0, y: 0 }); // Reset position when feature changes
   }, [feature]);
+
+  const handleDragStart = (e: ReactMouseEvent<HTMLDivElement, MouseEvent>) => {
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    };
+    document.body.style.cursor = 'move';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleDragMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+  };
+  
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+    } else {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging]);
 
   const handlePropertyKeyChange = (oldKey: string, newKey: string) => {
     // Prevent empty keys
@@ -128,18 +174,30 @@ export default function FeaturePropertiesPopup({
   return (
     <Popover open={true} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80" onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={() => onOpenChange(false)}>
+      <PopoverContent
+        ref={popupRef} 
+        className="w-80 cursor-default" 
+        onOpenAutoFocus={(e) => e.preventDefault()} 
+        onPointerDownOutside={() => onOpenChange(false)}
+        style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+        >
         <div className="grid gap-4">
           <div className="space-y-2">
-            <h4 className="font-medium leading-none">Feature Properties</h4>
-            <p className="text-sm text-muted-foreground">
-              Edit the properties of the selected feature.
+            <div 
+              className="flex items-center justify-center cursor-move text-muted-foreground py-2"
+              onMouseDown={handleDragStart}
+            >
+              <GripVertical className="h-5 w-5" />
+            </div>
+            <h4 className="font-medium leading-none text-center -mt-2">Feature Properties</h4>
+            <p className="text-sm text-muted-foreground text-center">
+              Edit properties or drag to move.
             </p>
           </div>
-          <div className="grid gap-2 max-h-64 overflow-y-auto">
+          <div className="grid gap-2 max-h-64 overflow-y-auto pr-2">
             {properties.map(([key, value]) => (
               <div key={key} className="flex items-center gap-2 group">
-                 <GripVertical className="h-4 w-4 text-muted-foreground" />
+                 <GripVertical className="h-4 w-4 text-muted-foreground/50" />
                 <Input
                   defaultValue={key}
                   className="font-mono text-xs"

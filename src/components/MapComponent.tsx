@@ -171,11 +171,8 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     
     const popupOverlay = new Overlay({
       element: popupRef.current!,
-      autoPan: {
-        animation: {
-          duration: 250,
-        },
-      },
+      autoPan: false, // Disable autoPan to allow manual dragging
+      positioning: 'center-center',
     });
 
     mapInstance.current = new Map({
@@ -349,17 +346,18 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
             const geometryType = geometry.getType();
             if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
               overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
-            } else if (geometryType === 'LineString') {
+            } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
                overlay.setPosition(geometry.getCoordinateAt(0.5));
             } else if (geometryType === 'Circle') {
               overlay.setPosition(geometry.getCenter());
-            } else {
+            } else { // Point or MultiPoint
               overlay.setPosition(geometry.getCoordinates());
             }
         }
       } else {
         overlay?.setPosition(undefined);
       }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFeature, isPopupOpen]);
   
   const handlePopupClose = () => {
