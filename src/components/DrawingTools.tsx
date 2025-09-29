@@ -11,6 +11,12 @@ import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
 import MapModeToggle from './MapModeToggle';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+  } from "@/components/ui/tooltip"
 
 interface DrawingToolsProps {
   map: Map | null;
@@ -60,68 +66,110 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
       </div>
       <div className='drawing-controls'>
-          <Toggle
-              aria-label="Select feature"
-              pressed={drawType === null}
-              onPressedChange={() => setDrawType(null)}
-          >
-              <Pointer className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-              aria-label="Draw a point"
-              pressed={drawType === 'Point'}
-              onPressedChange={() => handleDrawTypeChange('Point')}
-          >
-              <MapPin className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-              aria-label="Draw a line"
-              pressed={drawType === 'LineString'}
-              onPressedChange={() => handleDrawTypeChange('LineString')}
-          >
-              <Spline className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-              aria-label="Draw a polygon"
-              pressed={drawType === 'Polygon'}
-              onPressedChange={() => handleDrawTypeChange('Polygon')}
-          >
-              <Pentagon className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-              aria-label="Draw a rectangle"
-              pressed={drawType === 'Rectangle'}
-              onPressedChange={() => handleDrawTypeChange('Rectangle')}
-          >
-              <Square className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-              aria-label="Draw a circle"
-              pressed={drawType === 'Circle'}
-              onPressedChange={() => handleDrawTypeChange('Circle')}
-          >
-              <Circle className="h-4 w-4" />
-          </Toggle>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Select feature"
+                        pressed={drawType === null}
+                        onPressedChange={() => setDrawType(null)}
+                    >
+                        <Pointer className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Select</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Draw a point"
+                        pressed={drawType === 'Point'}
+                        onPressedChange={() => handleDrawTypeChange('Point')}
+                    >
+                        <MapPin className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Draw Point</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Draw a line"
+                        pressed={drawType === 'LineString'}
+                        onPressedChange={() => handleDrawTypeChange('LineString')}
+                    >
+                        <Spline className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Draw Line</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Draw a polygon"
+                        pressed={drawType === 'Polygon'}
+                        onPressedChange={() => handleDrawTypeChange('Polygon')}
+                    >
+                        <Pentagon className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Draw Polygon</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Draw a rectangle"
+                        pressed={drawType === 'Rectangle'}
+                        onPressedChange={() => handleDrawTypeChange('Rectangle')}
+                    >
+                        <Square className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Draw Rectangle</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Draw a circle"
+                        pressed={drawType === 'Circle'}
+                        onPressedChange={() => handleDrawTypeChange('Circle')}
+                    >
+                        <Circle className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Draw Circle</p></TooltipContent>
+            </Tooltip>
 
-          {featuresCount > 0 && (
-              <>
-              <Separator orientation="horizontal" className="my-1 bg-border" />
-              <Toggle
-                  aria-label="Edit feature"
-                  pressed={drawType === 'Edit'}
-                  onPressedChange={() => handleDrawTypeChange('Edit')}
-              >
-                  <Pencil className="h-4 w-4" />
-              </Toggle>
-              <Toggle
-                  aria-label="Delete feature"
-                  pressed={drawType === 'Delete'}
-                  onPressedChange={() => handleDrawTypeChange('Delete')}
-              >
-                  <Trash2 className="h-4 w-4" />
-              </Toggle>
-              </>
-          )}
+            {featuresCount > 0 && (
+                <>
+                <Separator orientation="horizontal" className="my-1 bg-border" />
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Toggle
+                            aria-label="Edit feature"
+                            pressed={drawType === 'Edit'}
+                            onPressedChange={() => handleDrawTypeChange('Edit')}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent side="left"><p>Edit Feature</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Toggle
+                            aria-label="Delete feature"
+                            pressed={drawType === 'Delete'}
+                            onPressedChange={() => handleDrawTypeChange('Delete')}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Toggle>
+                    </TooltipTrigger>
+                    <TooltipContent side="left"><p>Delete Feature</p></TooltipContent>
+                </Tooltip>
+                </>
+            )}
+        </TooltipProvider>
       </div>
     </div>
   );
