@@ -28,6 +28,8 @@ import JSZip from 'jszip';
 import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
 import { Button } from './ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import HelpContent from './HelpContent';
 
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -283,49 +285,58 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                 </Menubar>
               </TooltipProvider>
 
-              <div className="relative flex-grow w-full rounded-md border border-input overflow-hidden">
-                {geojsonString && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 z-10 h-7 w-7"
-                          onClick={handleCopy}
-                        >
-                          {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                <Editor
-                  height="100%"
-                  language="json"
-                  value={geojsonString}
-                  onChange={onGeojsonChange}
-                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 12,
-                    wordWrap: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                  }}
-                />
-              </div>
-              {validationStatus !== 'idle' && (
-                <div className="mt-2 p-2 rounded-md bg-muted/50 text-muted-foreground text-xs flex items-start gap-2">
-                    {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
-                    {validationStatus === 'valid' && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />}
-                    {validationStatus === 'invalid' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-500 mt-0.5 flex-shrink-0" />}
-                    <p className="break-words min-w-0">{validationFeedback}</p>
-                </div>
-              )}
+              <Tabs defaultValue="json" className="flex-grow flex flex-col">
+                <TabsList className="w-full">
+                  <TabsTrigger value="json" className="flex-1">JSON</TabsTrigger>
+                  <TabsTrigger value="help" className="flex-1">Help</TabsTrigger>
+                </TabsList>
+                <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
+                    {geojsonString && (
+                    <TooltipProvider>
+                        <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 z-10 h-7 w-7"
+                            onClick={handleCopy}
+                            >
+                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
+                        </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    )}
+                    <Editor
+                    height="100%"
+                    language="json"
+                    value={geojsonString}
+                    onChange={onGeojsonChange}
+                    theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                    options={{
+                        minimap: { enabled: false },
+                        fontSize: 12,
+                        wordWrap: 'on',
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                    }}
+                    />
+                     {validationStatus !== 'idle' && (
+                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-muted/80 backdrop-blur-sm text-muted-foreground text-xs flex items-start gap-2 border-t">
+                            {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
+                            {validationStatus === 'valid' && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />}
+                            {validationStatus === 'invalid' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-500 mt-0.5 flex-shrink-0" />}
+                            <p className="break-words min-w-0">{validationFeedback}</p>
+                        </div>
+                    )}
+                </TabsContent>
+                <TabsContent value="help" className="flex-grow mt-2 overflow-y-auto">
+                    <HelpContent />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
