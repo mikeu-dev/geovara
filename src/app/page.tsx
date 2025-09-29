@@ -21,12 +21,21 @@ const format = new GeoJSON({
   dataProjection: 'EPSG:4326',
 });
 
+const defaultGeoJsonString = JSON.stringify(
+  {
+    type: 'FeatureCollection',
+    features: [],
+  },
+  null,
+  2
+);
+
 export default function Home() {
   const [features, setFeatures] = useState<Feature<Geometry>[]>([]);
   const [selectedFeature, setSelectedFeature] = useState<Feature<Geometry> | null>(null);
   const [drawType, setDrawType] = useState<DrawType | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [geojsonString, setGeojsonString] = useState('');
+  const [geojsonString, setGeojsonString] = useState(defaultGeoJsonString);
 
   useEffect(() => {
     setIsClient(true);
@@ -34,7 +43,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!features.length) {
-      setGeojsonString('');
+      setGeojsonString(defaultGeoJsonString);
       return;
     };
     try {
@@ -66,7 +75,7 @@ export default function Home() {
   const handleGeojsonChange = (value: string | undefined) => {
     const newGeojsonString = value || '';
     setGeojsonString(newGeojsonString);
-    if (!newGeojsonString.trim()) {
+    if (!newGeojsonString.trim() || newGeojsonString.trim() === defaultGeoJsonString) {
       setFeatures([]);
       return;
     }
