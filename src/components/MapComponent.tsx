@@ -146,7 +146,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [is3d, setIs3d] = useState(false);
   const { toast } = useToast();
-  const shouldUpdateHash = useRef(true);
+  const isUpdatingFromHash = useRef(false);
 
 
   const styleFunction = (feature: Feature<Geometry>) => {
@@ -165,20 +165,11 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     return defaultStyles[geomType as keyof typeof defaultStyles] || defaultStyles['Point'];
   };
 
-  const updateHash = useCallback(() => {
-    if (!mapInstance.current || !shouldUpdateHash.current) return;
-    const view = mapInstance.current.getView();
-    const center = toLonLat(view.getCenter()!);
-    const zoom = view.getZoom();
-    const hash = `#map=${zoom?.toFixed(2)}/${center[1].toFixed(2)}/${center[0].toFixed(2)}`;
-    // Use replaceState to avoid cluttering browser history
-    window.history.replaceState(null, '', hash);
-  }, []);
-
   const updateViewFromHash = useCallback(() => {
+    if (!mapInstance.current) return;
     const hash = window.location.hash.substring(1);
-    if (!mapInstance.current || !hash.startsWith('map=')) return;
-
+    if (!hash.startsWith('map=')) return;
+  
     const parts = hash.substring(4).split('/');
     if (parts.length === 3) {
       const zoom = parseFloat(parts[0]);
@@ -186,10 +177,19 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       const lon = parseFloat(parts[2]);
       if (!isNaN(zoom) && !isNaN(lat) && !isNaN(lon)) {
         const view = mapInstance.current.getView();
-        shouldUpdateHash.current = false; // Temporarily disable hash updates
-        view.setCenter(fromLonLat([lon, lat]));
-        view.setZoom(zoom);
-        setTimeout(() => { shouldUpdateHash.current = true; }, 500); // Re-enable after animation
+        const currentCenter = toLonLat(view.getCenter()!);
+        const currentZoom = view.getZoom();
+        
+        // Only update if the view is significantly different
+        if (
+          Math.abs(currentZoom! - zoom) > 0.01 ||
+          Math.abs(currentCenter[0] - lon) > 0.0001 ||
+          Math.abs(currentCenter[1] - lat) > 0.0001
+        ) {
+          isUpdatingFromHash.current = true;
+          view.setCenter(fromLonLat([lon, lat]));
+          view.setZoom(zoom);
+        }
       }
     }
   }, []);
@@ -252,6 +252,20 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       ]),
     });
     
+    const updateHash = () => {
+      if (isUpdatingFromHash.current) {
+        isUpdatingFromHash.current = false;
+        return;
+      }
+      if (!mapInstance.current) return;
+      const view = mapInstance.current.getView();
+      const center = toLonLat(view.getCenter()!);
+      const zoom = view.getZoom();
+      const newHash = `#map=${zoom?.toFixed(2)}/${center[1].toFixed(4)}/${center[0].toFixed(4)}`;
+      // Use replaceState to avoid adding to browser history
+      window.history.replaceState(null, '', newHash);
+    };
+
     mapInstance.current.on('moveend', updateHash);
     window.addEventListener('hashchange', updateViewFromHash);
 
@@ -322,7 +336,6 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       document.removeEventListener('keydown', handleDelete);
       window.removeEventListener('hashchange', updateViewFromHash);
       if (mapInstance.current) {
-        mapInstance.current.un('moveend', updateHash);
         mapInstance.current.dispose();
         mapInstance.current = null;
       }
