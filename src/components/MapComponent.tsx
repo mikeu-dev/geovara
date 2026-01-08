@@ -119,14 +119,15 @@ const styleFromProperties = (feature: Feature<Geometry>): Style | undefined => {
 
   let image: CircleStyle | undefined;
   if (geomType === 'Point' || geomType === 'MultiPoint') {
+    const pointImage = defaultStyles.Point.getImage() as CircleStyle;
     image = new CircleStyle({
-      fill: fill || defaultStyles.Point.getImage().getFill(),
-      stroke: stroke || defaultStyles.Point.getImage().getStroke(),
+      fill: fill || pointImage?.getFill() || new Fill({ color: 'hsla(180, 100%, 25%, 0.7)' }),
+      stroke: stroke || pointImage?.getStroke() || new Stroke({ color: 'hsl(180, 100%, 25%)', width: 2 }),
       radius: props['radius'] || 7,
     });
     return new Style({ image });
   }
-  
+
   if (fill || stroke) {
     return new Style({ fill, stroke, image });
   }
@@ -154,7 +155,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     if (isSelected) {
       return selectedStyle;
     }
-    
+
     // Check for custom style properties on the feature
     const customStyle = styleFromProperties(feature);
     if (customStyle) {
@@ -169,7 +170,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     if (!mapInstance.current) return;
     const hash = window.location.hash.substring(1);
     if (!hash.startsWith('map=')) return;
-  
+
     const parts = hash.substring(4).split('/');
     if (parts.length === 3) {
       const zoom = parseFloat(parts[0]);
@@ -179,7 +180,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         const view = mapInstance.current.getView();
         const currentCenter = toLonLat(view.getCenter()!);
         const currentZoom = view.getZoom();
-        
+
         // Only update if the view is significantly different
         if (
           Math.abs(currentZoom! - zoom) > 0.01 ||
@@ -198,19 +199,19 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     if (!mapRef.current || mapInstance.current) return;
 
     const initialTileLayer = new TileLayer({
-        source: new OSM(),
+      source: new OSM(),
     });
     setTileLayer(initialTileLayer);
-    
+
     const vectorLayer = new VectorLayer({
       source: vectorSource.current,
-      style: styleFunction
+      style: styleFunction as any
     });
-    
+
     const attribution = new Attribution({
       collapsible: false,
     });
-    
+
     const popupOverlay = new Overlay({
       element: popupRef.current!,
       autoPan: false,
@@ -222,16 +223,16 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     let center = fromLonLat([10, 20]);
     let zoom = 3;
     if (hash.startsWith('map=')) {
-        const parts = hash.substring(4).split('/');
-        if (parts.length === 3) {
-            const parsedZoom = parseFloat(parts[0]);
-            const lat = parseFloat(parts[1]);
-            const lon = parseFloat(parts[2]);
-            if (!isNaN(parsedZoom) && !isNaN(lat) && !isNaN(lon)) {
-                zoom = parsedZoom;
-                center = fromLonLat([lon, lat]);
-            }
+      const parts = hash.substring(4).split('/');
+      if (parts.length === 3) {
+        const parsedZoom = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        const lon = parseFloat(parts[2]);
+        if (!isNaN(parsedZoom) && !isNaN(lat) && !isNaN(lon)) {
+          zoom = parsedZoom;
+          center = fromLonLat([lon, lat]);
         }
+      }
     }
 
     mapInstance.current = new Map({
@@ -251,7 +252,7 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         attribution,
       ]),
     });
-    
+
     const updateHash = () => {
       if (isUpdatingFromHash.current) {
         isUpdatingFromHash.current = false;
@@ -281,29 +282,30 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     dragAndDropInteraction.on('addfeatures', (event: DragAndDropEvent) => {
       const droppedFeatures = event.features;
       if (!droppedFeatures) return;
-      
+
       const newFeaturesWithId = droppedFeatures.map((f, i) => {
-        if (!f.getId()) {
-          f.setId(`dropped_feature_${Date.now()}_${i}`);
+        const feature = f as Feature<Geometry>;
+        if (!feature.getId()) {
+          feature.setId(`dropped_feature_${Date.now()}_${i}`);
         }
-        return f;
+        return feature;
       })
 
       setFeatures(prev => [...prev, ...newFeaturesWithId]);
     });
     mapInstance.current.addInteraction(dragAndDropInteraction);
 
-    modifyInteraction.current = new Modify({ 
-      source: vectorSource.current ,
+    modifyInteraction.current = new Modify({
+      source: vectorSource.current,
     });
     mapInstance.current.addInteraction(modifyInteraction.current);
     modifyInteraction.current.on('modifyend', (e: ModifyEvent) => {
-        setFeatures(prev => [...prev]);
+      setFeatures(prev => [...prev]);
     });
     modifyInteraction.current.setActive(false);
 
-    selectInteraction.current = new Select({ 
-      style: styleFunction,
+    selectInteraction.current = new Select({
+      style: styleFunction as any,
       hitTolerance: 5,
     });
     mapInstance.current.addInteraction(selectInteraction.current);
@@ -340,31 +342,31 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         mapInstance.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   useEffect(() => {
     if (!mapInstance.current) return;
-  
+
     if (drawInteraction.current) {
       mapInstance.current.removeInteraction(drawInteraction.current);
       drawInteraction.current = null;
     }
-    
+
     if (selectInteraction.current) {
       const isDrawing = drawType && ['Point', 'LineString', 'Polygon', 'Rectangle', 'Circle'].includes(drawType);
       selectInteraction.current.setActive(!isDrawing);
     }
-  
+
     if (modifyInteraction.current) {
       modifyInteraction.current.setActive(drawType === 'Edit');
     }
-  
+
     if (drawType && ['Point', 'LineString', 'Polygon', 'Rectangle', 'Circle'].includes(drawType)) {
       selectInteraction.current?.getFeatures().clear();
       onFeatureSelect(null);
       setIsPopupOpen(false);
-      
+
       const drawOptions: any = {
         source: vectorSource.current,
       };
@@ -377,25 +379,25 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
       }
 
       drawInteraction.current = new Draw(drawOptions);
-  
+
       drawInteraction.current.on('drawend', (e: DrawEvent) => {
         const newFeature = e.feature;
         const id = `${drawType}_${Date.now()}`;
         newFeature.setId(id);
-        
+
         const finalDrawType = drawType === 'Rectangle' ? 'Polygon' : drawType;
         newFeature.set('name', `New ${finalDrawType}`);
         newFeature.set('description', '');
-  
+
         setFeatures((prev) => [...prev, newFeature]);
         setDrawType(null); // This will trigger the useEffect again, re-enabling select
         onFeatureSelect(newFeature); // Select the feature to show the dialog
         setIsPopupOpen(true);
       });
-      
+
       mapInstance.current.addInteraction(drawInteraction.current);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawType, setFeatures, onFeatureSelect, setDrawType]);
 
   useEffect(() => {
@@ -404,15 +406,15 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
 
     const featuresInStateIds = features.map(f => f.getId());
     const featuresInSource = source.getFeatures();
-    
+
     const featuresToRemoveFromSource = featuresInSource.filter(f => {
-        const id = f.getId();
-        return id !== undefined && !featuresInStateIds.includes(id);
+      const id = f.getId();
+      return id !== undefined && !featuresInStateIds.includes(id);
     });
     featuresToRemoveFromSource.forEach(f => {
-        if (f.getId() && source.getFeatureById(f.getId()!)) {
-            source.removeFeature(f)
-        }
+      if (f.getId() && source.getFeatureById(f.getId()!)) {
+        source.removeFeature(f)
+      }
     });
 
     features.forEach(feature => {
@@ -420,34 +422,34 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
         source.addFeature(feature);
       }
     });
-    
+
     // Force a re-render of the vector layer to apply new styles
     source.changed();
 
   }, [features]);
-  
+
   useEffect(() => {
-      const overlay = mapInstance.current?.getOverlays().getArray()[0];
-      if (isPopupOpen && selectedFeature && overlay) {
-        const geometry = selectedFeature.getGeometry() as any; // Use any to access methods
-        if(geometry) {
-            const geometryType = geometry.getType();
-            if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
-              overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
-            } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
-               overlay.setPosition(geometry.getCoordinateAt(0.5));
-            } else if (geometryType === 'Circle') {
-              overlay.setPosition(geometry.getCenter());
-            } else { // Point or MultiPoint
-              overlay.setPosition(geometry.getCoordinates());
-            }
+    const overlay = mapInstance.current?.getOverlays().getArray()[0];
+    if (isPopupOpen && selectedFeature && overlay) {
+      const geometry = selectedFeature.getGeometry() as any; // Use any to access methods
+      if (geometry) {
+        const geometryType = geometry.getType();
+        if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+          overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
+        } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+          overlay.setPosition(geometry.getCoordinateAt(0.5));
+        } else if (geometryType === 'Circle') {
+          overlay.setPosition(geometry.getCenter());
+        } else { // Point or MultiPoint
+          overlay.setPosition(geometry.getCoordinates());
         }
-      } else {
-        overlay?.setPosition(undefined);
       }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    } else {
+      overlay?.setPosition(undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFeature, isPopupOpen]);
-  
+
   const handlePopupClose = () => {
     setIsPopupOpen(false);
     selectInteraction.current?.getFeatures().clear();
@@ -464,10 +466,10 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     const newIs3d = !is3d;
     setIs3d(newIs3d);
     if (newIs3d) {
-        toast({
-            title: "3D mode is under development.",
-            duration: 3000,
-        });
+      toast({
+        title: "3D mode is under development.",
+        duration: 3000,
+      });
     }
   }
 
@@ -475,17 +477,17 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     <div ref={mapRef} className="w-full h-full relative">
       <DrawingTools map={mapInstance.current} drawType={drawType} setDrawType={setDrawType} featuresCount={features.length} tileLayer={tileLayer} is3d={is3d} onToggle3d={handleToggle3d} />
       <div ref={popupRef} className="ol-popup">
-       {isPopupOpen && selectedFeature && (
-         <FeaturePropertiesPopup
-           feature={selectedFeature}
-           onDelete={handleDeleteAndClose}
-           onPropertyChange={onFeaturePropertyChange}
-           onOpenChange={handlePopupClose}
-         >
-           {/* This is a dummy trigger, the popover is controlled programmatically */}
-           <div></div>
-         </FeaturePropertiesPopup>
-       )}
+        {isPopupOpen && selectedFeature && (
+          <FeaturePropertiesPopup
+            feature={selectedFeature}
+            onDelete={handleDeleteAndClose}
+            onPropertyChange={onFeaturePropertyChange}
+            onOpenChange={handlePopupClose}
+          >
+            {/* This is a dummy trigger, the popover is controlled programmatically */}
+            <div></div>
+          </FeaturePropertiesPopup>
+        )}
       </div>
     </div>
   );

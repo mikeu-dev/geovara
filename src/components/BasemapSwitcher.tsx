@@ -17,8 +17,8 @@ import XYZ_Source from 'ol/source/XYZ';
 
 
 const basemaps = [
-    { id: 'osm', name: 'OpenStreetMap', source: new OSM_Source() },
-    { id: 'satellite', name: 'Satellite', source: new XYZ_Source({ url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 19, attribution: 'Tiles © Esri' })},
+  { id: 'osm', name: 'OpenStreetMap', source: new OSM_Source() },
+  { id: 'satellite', name: 'Satellite', source: new XYZ_Source({ url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 19, attributions: 'Tiles © Esri' }) },
 ];
 
 
@@ -37,7 +37,7 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
       setActiveBasemap(basemapId);
     }
   };
-  
+
   if (!tileLayer) return null;
 
   return (

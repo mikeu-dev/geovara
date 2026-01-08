@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { Map } from 'ol';
+// @ts-ignore - cesium types might not be available
 import { createWorldTerrainAsync, Cesium3DTileset } from 'cesium';
 
 // ol-cesium is imported inside useEffect to prevent SSR issues and conflicts with Next.js module loading.
@@ -25,22 +26,22 @@ export default function CesiumController({ map, enabled }: CesiumControllerProps
       try {
         const ol3dInstance = new OLCesium({ map: map });
         ol3d.current = ol3dInstance;
-        
+
         const scene = ol3dInstance.getCesiumScene();
-        
-        createWorldTerrainAsync().then(terrainProvider => {
-            scene.terrainProvider = terrainProvider;
-        }).catch(error => {
-            console.error("Error setting terrain provider:", error);
+
+        createWorldTerrainAsync().then((terrainProvider: any) => {
+          scene.terrainProvider = terrainProvider;
+        }).catch((error: any) => {
+          console.error("Error setting terrain provider:", error);
         });
 
         Cesium3DTileset.fromUrl('https://assets.cesium.com/1/ion/default/v1/354307/tileset.json?assetId=354307', {
           skipLevelOfDetail: true,
           cullWithChildrenBounds: false,
-        }).then(tileset => {
-            scene.primitives.add(tileset);
-        }).catch(error => {
-            console.error("Error loading 3D tileset:", error);
+        }).then((tileset: any) => {
+          scene.primitives.add(tileset);
+        }).catch((error: any) => {
+          console.error("Error loading 3D tileset:", error);
         });
 
         isInitialized.current = true;
@@ -49,7 +50,7 @@ export default function CesiumController({ map, enabled }: CesiumControllerProps
         return;
       }
     }
-    
+
     if (ol3d.current) {
       try {
         ol3d.current.setEnabled(enabled);

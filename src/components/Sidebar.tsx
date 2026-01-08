@@ -38,10 +38,10 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 });
 
 interface SidebarProps {
-    geojsonString: string;
-    onGeojsonChange: (value: string | undefined) => void;
-    featuresCount: number;
-    onClear: () => void;
+  geojsonString: string;
+  onGeojsonChange: (value: string | undefined) => void;
+  featuresCount: number;
+  onClear: () => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -50,8 +50,8 @@ const geojsonFormat = new GeoJSON({
 });
 
 const kmlFormat = new KML({
-    extractStyles: true,
-    showPointNames: true,
+  extractStyles: true,
+  showPointNames: true,
 });
 
 export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount, onClear }: SidebarProps) {
@@ -81,13 +81,13 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
       document.documentElement.classList.remove('dark');
     }
   };
-  
+
   const handleClear = () => {
     onClear();
     setValidationStatus('idle');
     setValidationFeedback('');
   };
-  
+
   const handleCopy = () => {
     if (!geojsonString) {
       toast({
@@ -154,196 +154,196 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
 
   const handleDownload = async (format: 'geojson' | 'kml' | 'kmz') => {
     if (!geojsonString) {
-        toast({ title: 'No data to save', variant: 'destructive' });
-        return;
+      toast({ title: 'No data to save', variant: 'destructive' });
+      return;
     }
 
     try {
-        const features = geojsonFormat.readFeatures(geojsonString) as Feature<Geometry>[];
-        let data: string | Blob;
-        let filename: string;
-        let mimeType: string;
+      const features = geojsonFormat.readFeatures(geojsonString) as Feature<Geometry>[];
+      let data: string | Blob;
+      let filename: string;
+      let mimeType: string;
 
-        switch (format) {
-            case 'geojson':
-                data = geojsonString;
-                filename = 'map.geojson';
-                mimeType = 'application/vnd.geo+json';
-                break;
-            case 'kml':
-                data = kmlFormat.writeFeatures(features);
-                filename = 'map.kml';
-                mimeType = 'application/vnd.google-earth.kml+xml';
-                break;
-            case 'kmz':
-                const kmlData = kmlFormat.writeFeatures(features, {
-                    featureProjection: 'EPSG:4326',
-                    dataProjection: 'EPSG:4326',
-                });
-                const zip = new JSZip();
-                zip.file('doc.kml', kmlData);
-                data = await zip.generateAsync({type: 'blob'});
-                filename = 'map.kmz';
-                mimeType = 'application/vnd.google-earth.kmz';
-                break;
-        }
-        
-        const blob = new Blob([data], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast({ title: `Successfully downloaded ${filename}` });
+      switch (format) {
+        case 'geojson':
+          data = geojsonString;
+          filename = 'map.geojson';
+          mimeType = 'application/vnd.geo+json';
+          break;
+        case 'kml':
+          data = kmlFormat.writeFeatures(features);
+          filename = 'map.kml';
+          mimeType = 'application/vnd.google-earth.kml+xml';
+          break;
+        case 'kmz':
+          const kmlData = kmlFormat.writeFeatures(features, {
+            featureProjection: 'EPSG:4326',
+            dataProjection: 'EPSG:4326',
+          });
+          const zip = new JSZip();
+          zip.file('doc.kml', kmlData);
+          data = await zip.generateAsync({ type: 'blob' });
+          filename = 'map.kmz';
+          mimeType = 'application/vnd.google-earth.kmz';
+          break;
+      }
+
+      const blob = new Blob([data], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: `Successfully downloaded ${filename}` });
     } catch (error) {
-        console.error('Error during download:', error);
-        toast({ title: 'Download failed', description: 'Could not generate file.', variant: 'destructive' });
+      console.error('Error during download:', error);
+      toast({ title: 'Download failed', description: 'Could not generate file.', variant: 'destructive' });
     }
   };
-  
+
   return (
-      <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto">
-        <div className="p-4 border-b border-border">
-          <h1 className="text-2xl font-bold font-headline">GeoDraw</h1>
-          <p className="text-muted-foreground">Draw on the map, get GeoJSON.</p>
-        </div>
-        <div className="flex flex-col flex-grow p-4 min-h-0">
-          <Card className="flex flex-col flex-grow">
-            <CardContent className="flex-grow flex flex-col pt-4">
-               <TooltipProvider>
-                <Menubar className="mb-2 h-auto p-1 justify-between">
-                  <div className="flex items-center">
-                    <MenubarMenu>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                            <MenubarTrigger className="w-9 h-9" onClick={handleThemeToggle}>
-                                {theme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                            </MenubarTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                            <p>Toggle Theme</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </MenubarMenu>
+    <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto">
+      <div className="p-4 border-b border-border">
+        <h1 className="text-2xl font-bold font-headline">GeoDraw</h1>
+        <p className="text-muted-foreground">Draw on the map, get GeoJSON.</p>
+      </div>
+      <div className="flex flex-col flex-grow p-4 min-h-0">
+        <Card className="flex flex-col flex-grow">
+          <CardContent className="flex-grow flex flex-col pt-4">
+            <TooltipProvider>
+              <Menubar className="mb-2 h-auto p-1 justify-between">
+                <div className="flex items-center">
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" onClick={handleThemeToggle}>
+                          {theme === 'light' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Toggle Theme</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </MenubarMenu>
 
-                    <MenubarSeparator orientation="vertical" className="h-6 mx-1" />
-                    
-                    <MenubarMenu>
+                  <MenubarSeparator className="h-6 mx-1" />
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleValidate}>
+                          {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Validate GeoJSON</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" disabled={!geojsonString}>
+                          <FileDown className="h-4 w-4" />
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Save File</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <MenubarContent>
+                      <MenubarItem onClick={() => handleDownload('geojson')}>
+                        Save as GeoJSON
+                      </MenubarItem>
+                      <MenubarItem onClick={() => handleDownload('kml')}>
+                        Save as KML
+                      </MenubarItem>
+                      <MenubarItem onClick={() => handleDownload('kmz')}>
+                        Save as KMZ
+                      </MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
+                </div>
+              </Menubar>
+            </TooltipProvider>
+
+            <Tabs defaultValue="json" className="flex-grow flex flex-col">
+              <TabsList className="w-full">
+                <TabsTrigger value="json" className="flex-1">JSON</TabsTrigger>
+                <TabsTrigger value="help" className="flex-1">Help</TabsTrigger>
+              </TabsList>
+              <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
+                {geojsonString && (
+                  <TooltipProvider>
+                    <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString} onClick={handleValidate}>
-                            {validationStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                          </MenubarTrigger>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleClear}
+                            disabled={featuresCount === 0}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Validate GeoJSON</p>
+                          <p>Clear</p>
                         </TooltipContent>
                       </Tooltip>
-                    </MenubarMenu>
-
-                    <MenubarMenu>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-9 h-9" disabled={!geojsonString}>
-                            <FileDown className="h-4 w-4" />
-                          </MenubarTrigger>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleCopy}
+                          >
+                            {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                          </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Save File</p>
+                          <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
                         </TooltipContent>
                       </Tooltip>
-                      <MenubarContent>
-                        <MenubarItem onClick={() => handleDownload('geojson')}>
-                          Save as GeoJSON
-                        </MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('kml')}>
-                          Save as KML
-                        </MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('kmz')}>
-                          Save as KMZ
-                        </MenubarItem>
-                      </MenubarContent>
-                    </MenubarMenu>
+                    </div>
+                  </TooltipProvider>
+                )}
+                <Editor
+                  height="100%"
+                  language="json"
+                  value={geojsonString}
+                  onChange={onGeojsonChange}
+                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 12,
+                    wordWrap: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                  }}
+                />
+                {validationStatus !== 'idle' && (
+                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-muted/80 backdrop-blur-sm text-muted-foreground text-xs flex items-start gap-2 border-t">
+                    {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
+                    {validationStatus === 'valid' && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />}
+                    {validationStatus === 'invalid' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-500 mt-0.5 flex-shrink-0" />}
+                    <p className="break-words min-w-0">{validationFeedback}</p>
                   </div>
-                </Menubar>
-              </TooltipProvider>
-
-              <Tabs defaultValue="json" className="flex-grow flex flex-col">
-                <TabsList className="w-full">
-                  <TabsTrigger value="json" className="flex-1">JSON</TabsTrigger>
-                  <TabsTrigger value="help" className="flex-1">Help</TabsTrigger>
-                </TabsList>
-                <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
-                    {geojsonString && (
-                    <TooltipProvider>
-                        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={handleClear}
-                                    disabled={featuresCount === 0}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Clear</p>
-                                </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={handleCopy}
-                                >
-                                {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
-                            </TooltipContent>
-                            </Tooltip>
-                        </div>
-                    </TooltipProvider>
-                    )}
-                    <Editor
-                    height="100%"
-                    language="json"
-                    value={geojsonString}
-                    onChange={onGeojsonChange}
-                    theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                    options={{
-                        minimap: { enabled: false },
-                        fontSize: 12,
-                        wordWrap: 'on',
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                    }}
-                    />
-                     {validationStatus !== 'idle' && (
-                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-muted/80 backdrop-blur-sm text-muted-foreground text-xs flex items-start gap-2 border-t">
-                            {validationStatus === 'loading' && <Loader2 className="h-4 w-4 animate-spin mt-0.5 flex-shrink-0" />}
-                            {validationStatus === 'valid' && <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 mt-0.5 flex-shrink-0" />}
-                            {validationStatus === 'invalid' && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-500 mt-0.5 flex-shrink-0" />}
-                            <p className="break-words min-w-0">{validationFeedback}</p>
-                        </div>
-                    )}
-                </TabsContent>
-                <TabsContent value="help" className="flex-grow mt-2 overflow-y-auto">
-                    <HelpContent />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </aside>
+                )}
+              </TabsContent>
+              <TabsContent value="help" className="flex-grow mt-2 overflow-y-auto">
+                <HelpContent />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    </aside>
   );
 }
