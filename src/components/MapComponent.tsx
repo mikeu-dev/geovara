@@ -6,6 +6,7 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat, get as getProjection } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
+import VectorImageLayer from 'ol/layer/VectorImage';
 import VectorSource from 'ol/source/Vector';
 import { DragAndDrop, Draw, Modify, Select } from 'ol/interaction';
 import { createBox } from 'ol/interaction/Draw';
@@ -203,9 +204,11 @@ export default function MapComponent({ features, setFeatures, drawType, setDrawT
     });
     setTileLayer(initialTileLayer);
 
-    const vectorLayer = new VectorLayer({
+    const vectorLayer = new VectorImageLayer({
       source: vectorSource.current,
-      style: styleFunction as any
+      style: styleFunction as any,
+      // Optimization: increased image ratio for smoother panning
+      imageRatio: 2
     });
 
     const attribution = new Attribution({

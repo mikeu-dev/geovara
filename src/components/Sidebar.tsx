@@ -19,8 +19,14 @@ import {
 } from "@/components/ui/tooltip"
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Copy, Trash2, CheckCircle, AlertTriangle, Loader2, FileDown, Sparkles, Sun, Moon, Check } from 'lucide-react';
+import { 
+  Copy, Trash2, CheckCircle, AlertTriangle, Loader2, 
+  FileDown, Sparkles, Sun, Moon, Check, Link2, 
+  Map as MapIcon, Crosshair, Share2 
+} from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
+import { createBuffer, calculateCentroid } from '@/lib/spatial';
+import { Feature as GeoJSONFeature, FeatureCollection } from 'geojson';
 import { Skeleton } from './ui/skeleton';
 import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
@@ -60,6 +66,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
   const [validationFeedback, setValidationFeedback] = useState('');
   const [theme, setTheme] = useState('light');
   const [isCopied, setIsCopied] = useState(false);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -109,6 +116,82 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
         variant: 'destructive',
         title: 'Failed to copy',
         description: 'Could not copy GeoJSON to clipboard.',
+      });
+    });
+  };
+
+  const handleBuffer = () => {
+    if (!geojsonString) return;
+    const radius = prompt('Enter buffer radius in kilometers:', '1');
+    if (radius === null) return;
+    
+    const r = parseFloat(radius);
+    if (isNaN(r)) {
+      toast({ title: 'Invalid radius', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const geojson = JSON.parse(geojsonString) as FeatureCollection;
+      const bufferedFeatures: GeoJSONFeature[] = [];
+      
+      geojson.features.forEach(feature => {
+        const buffered = createBuffer(feature as any, r);
+        buffered.properties = { 
+          ...feature.properties, 
+          type: 'buffer', 
+          parent_id: feature.id || 'unknown',
+          buffer_radius: r 
+        };
+        bufferedFeatures.push(buffered as any);
+      });
+
+      const newGeojson = {
+        ...geojson,
+        features: [...geojson.features, ...bufferedFeatures]
+      };
+      
+      onGeojsonChange(JSON.stringify(newGeojson, null, 2));
+      toast({ title: `Created ${bufferedFeatures.length} buffer(s)` });
+    } catch (error) {
+       console.error('Buffer error:', error);
+       toast({ title: 'Analysis failed', variant: 'destructive' });
+    }
+  };
+
+  const handleCentroid = () => {
+    if (!geojsonString) return;
+    try {
+      const geojson = JSON.parse(geojsonString) as FeatureCollection;
+      const centroid = calculateCentroid(geojson);
+      centroid.properties = { type: 'centroid', generated_at: new Date().toISOString() };
+      
+      const newGeojson = {
+        ...geojson,
+        features: [...geojson.features, centroid as any]
+      };
+      
+      onGeojsonChange(JSON.stringify(newGeojson, null, 2));
+      toast({ title: 'Centroid calculated' });
+    } catch (error) {
+       console.error('Centroid error:', error);
+       toast({ title: 'Analysis failed', variant: 'destructive' });
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setIsLinkCopied(true);
+      setTimeout(() => setIsLinkCopied(false), 2000);
+      toast({
+        title: 'Shareable link copied!',
+        description: 'Anyone with this link can view your map.',
+      });
+    }, (err) => {
+      console.error('Could not copy link: ', err);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to copy link',
       });
     });
   };
@@ -242,6 +325,42 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                         <p>Validate GeoJSON</p>
                       </TooltipContent>
                     </Tooltip>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" onClick={handleCopyLink}>
+                          {isLinkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Share2 className="h-4 w-4" />}
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isLinkCopied ? 'Link Copied!' : 'Share Map Link'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" disabled={!geojsonString}>
+                          <Crosshair className="h-4 w-4" />
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Spatial Analysis</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <MenubarContent>
+                      <MenubarItem onClick={handleBuffer} className="flex items-center gap-2">
+                         <div className="w-4 h-4 rounded-full border-2 border-primary" />
+                         Buffer Features
+                      </MenubarItem>
+                      <MenubarItem onClick={handleCentroid} className="flex items-center gap-2">
+                         <MapIcon className="w-4 h-4" />
+                         Calculate Centroid
+                      </MenubarItem>
+                    </MenubarContent>
                   </MenubarMenu>
 
                   <MenubarMenu>

@@ -11,7 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Trash2, Plus, GripVertical } from 'lucide-react';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { Feature as GeoJSONFeature } from 'geojson';
+import GeoJSON from 'ol/format/GeoJSON';
+import { calculateArea, calculateLength } from '@/lib/spatial';
 import { cn } from '@/lib/utils';
+
+const geojsonFormat = new GeoJSON();
 
 interface FeaturePropertiesPopupProps {
   feature: Feature<Geometry>;
@@ -170,6 +175,38 @@ export default function FeaturePropertiesPopup({
   
   const isColorProperty = (key: string) => ['fill', 'stroke'].includes(key.toLowerCase());
 
+  const calculatedAnalysis = (() => {
+    try {
+      const geometry = feature.getGeometry();
+      if (!geometry) return null;
+
+      const type = geometry.getType();
+      const geojson = geojsonFormat.writeFeatureObject(feature) as GeoJSONFeature;
+
+      if (type === 'Polygon' || type === 'MultiPolygon') {
+        const area = calculateArea(geojson);
+        return {
+          label: 'Area',
+          value: area > 1000000 
+            ? `${(area / 1000000).toFixed(4)} km²` 
+            : `${area.toFixed(2)} m²`
+        };
+      } else if (type === 'LineString' || type === 'MultiLineString') {
+        const length = calculateLength(geojson);
+        return {
+          label: 'Length',
+          value: length > 1000 
+            ? `${(length / 1000).toFixed(4)} km` 
+            : `${length.toFixed(2)} m`
+        };
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+
 
   return (
     <Popover open={true} onOpenChange={onOpenChange}>
@@ -238,6 +275,13 @@ export default function FeaturePropertiesPopup({
           <Button variant="link" size="sm" onClick={handleAddSimpleStyle} className="p-0 h-auto justify-start">
             Add simple style
           </Button>
+
+          {calculatedAnalysis && (
+            <div className="mt-2 p-2 bg-muted rounded-md border border-dashed text-xs">
+              <span className="font-semibold text-muted-foreground mr-1">{calculatedAnalysis.label}:</span>
+              <span className="font-mono">{calculatedAnalysis.value}</span>
+            </div>
+          )}
 
           <div className="flex justify-between mt-2">
             <Button variant="destructive" onClick={() => onDelete(feature.getId())}>

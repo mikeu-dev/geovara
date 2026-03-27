@@ -7,6 +7,8 @@ import GeoJSON from 'ol/format/GeoJSON';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
+import { Loader2 } from 'lucide-react';
+import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
@@ -35,10 +37,29 @@ export default function Home() {
   const [selectedFeature, setSelectedFeature] = useState<Feature<Geometry> | null>(null);
   const [drawType, setDrawType] = useState<DrawType | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [geojsonString, setGeojsonString] = useState(defaultGeoJsonString);
 
   useEffect(() => {
     setIsClient(true);
+    // Initial load from URL
+    const encoded = getEncodedFromHash();
+    if (encoded) {
+      const decoded = decodeGeoJSON(encoded);
+      if (decoded && decoded !== defaultGeoJsonString) {
+        setGeojsonString(decoded);
+        try {
+          const geojson_obj = JSON.parse(decoded);
+          const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
+          featuresFromGeojson.forEach((f, i) => {
+            if (!f.getId()) f.setId(`feature_url_${Date.now()}_${i}`);
+          });
+          setFeatures(featuresFromGeojson);
+        } catch (e) {
+          console.error('Invalid GeoJSON in URL hash');
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -57,7 +78,16 @@ export default function Home() {
       });
 
       const geojson = format.writeFeaturesObject(featuresToWrite);
-      setGeojsonString(JSON.stringify(geojson, null, 2));
+      const newGeojsonString = JSON.stringify(geojson, null, 2);
+      setGeojsonString(newGeojsonString);
+      
+      // Update URL hash
+      if (newGeojsonString !== defaultGeoJsonString) {
+        const encoded = encodeGeoJSON(newGeojsonString);
+        updateUrlHash(encoded);
+      } else {
+        updateUrlHash('');
+      }
     } catch (error) {
       console.error('Error converting features to GeoJSON:', error);
       setGeojsonString('Error generating GeoJSON');
@@ -79,19 +109,45 @@ export default function Home() {
       setFeatures([]);
       return;
     }
-    try {
-      const geojson_obj = JSON.parse(newGeojsonString);
-      const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
 
-      featuresFromGeojson.forEach((f, i) => {
-        if (!f.getId()) {
-          f.setId(`feature_${Date.now()}_${i}`);
+    // Use Web Worker for parsing large datasets
+    if (newGeojsonString.length > 5000) {
+      setIsParsing(true);
+      const worker = new Worker(new URL('../workers/geojson.worker.ts', import.meta.url));
+      worker.postMessage(newGeojsonString);
+      worker.onmessage = (e) => {
+        setIsParsing(false);
+        if (e.data.success) {
+          try {
+            const featuresFromGeojson = format.readFeatures(e.data.data) as Feature<Geometry>[];
+            featuresFromGeojson.forEach((f, i) => {
+              if (!f.getId()) f.setId(`feature_worker_${Date.now()}_${i}`);
+            });
+            setFeatures(featuresFromGeojson);
+          } catch (err) {
+            console.error('Error reading features from worker data');
+          }
         }
-      });
-      
-      setFeatures(featuresFromGeojson);
-    } catch (e) {
-      // Invalid GeoJSON, do nothing
+        worker.terminate();
+      };
+      worker.onerror = () => {
+        setIsParsing(false);
+        worker.terminate();
+      };
+    } else {
+      // Small datasets, parse synchronously for speed
+      try {
+        const geojson_obj = JSON.parse(newGeojsonString);
+        const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
+
+        featuresFromGeojson.forEach((f, i) => {
+          if (!f.getId()) f.setId(`feature_${Date.now()}_${i}`);
+        });
+        
+        setFeatures(featuresFromGeojson);
+      } catch (e) {
+        // Invalid GeoJSON, do nothing
+      }
     }
   }
 
@@ -138,16 +194,26 @@ export default function Home() {
       />
       <div className="flex-grow h-full w-full relative">
         {isClient ? (
-          <MapComponent 
-            features={features} 
-            setFeatures={setFeatures} 
-            drawType={drawType}
-            setDrawType={setDrawType}
-            selectedFeature={selectedFeature}
-            onFeatureSelect={handleFeatureSelect}
-            onDeleteFeature={handleDeleteFeature}
-            onFeaturePropertyChange={handleFeaturePropertyChange}
-          />
+          <>
+            {isParsing && (
+              <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-50 flex items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-2 bg-card p-4 rounded-lg shadow-lg border">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Processing Large Dataset...</p>
+                </div>
+              </div>
+            )}
+            <MapComponent 
+              features={features} 
+              setFeatures={setFeatures} 
+              drawType={drawType}
+              setDrawType={setDrawType}
+              selectedFeature={selectedFeature}
+              onFeatureSelect={handleFeatureSelect}
+              onDeleteFeature={handleDeleteFeature}
+              onFeaturePropertyChange={handleFeaturePropertyChange}
+            />
+          </>
         ) : <MapSkeleton />}
       </div>
     </main>
