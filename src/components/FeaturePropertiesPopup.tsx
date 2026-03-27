@@ -13,7 +13,7 @@ import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { Feature as GeoJSONFeature } from 'geojson';
 import GeoJSON from 'ol/format/GeoJSON';
-import { calculateArea, calculateLength } from '@/lib/spatial';
+import { GisService } from '@/lib/spatial';
 import { cn } from '@/lib/utils';
 
 const geojsonFormat = new GeoJSON();
@@ -184,7 +184,7 @@ export default function FeaturePropertiesPopup({
       const geojson = geojsonFormat.writeFeatureObject(feature) as GeoJSONFeature;
 
       if (type === 'Polygon' || type === 'MultiPolygon') {
-        const area = calculateArea(geojson);
+        const area = GisService.calculateArea(geojson);
         return {
           label: 'Area',
           value: area > 1000000 
@@ -192,7 +192,7 @@ export default function FeaturePropertiesPopup({
             : `${area.toFixed(2)} m²`
         };
       } else if (type === 'LineString' || type === 'MultiLineString') {
-        const length = calculateLength(geojson);
+        const length = GisService.calculateLength(geojson);
         return {
           label: 'Length',
           value: length > 1000 

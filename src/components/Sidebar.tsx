@@ -25,7 +25,7 @@ import {
   Map as MapIcon, Crosshair, Share2 
 } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
-import { createBuffer, calculateCentroid } from '@/lib/spatial';
+import { GisService } from '@/lib/spatial';
 import { Feature as GeoJSONFeature, FeatureCollection } from 'geojson';
 import { Skeleton } from './ui/skeleton';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -136,7 +136,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
       const bufferedFeatures: GeoJSONFeature[] = [];
       
       geojson.features.forEach(feature => {
-        const buffered = createBuffer(feature as any, r);
+        const buffered = GisService.createBuffer(feature as any, r);
         buffered.properties = { 
           ...feature.properties, 
           type: 'buffer', 
@@ -163,7 +163,7 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
     if (!geojsonString) return;
     try {
       const geojson = JSON.parse(geojsonString) as FeatureCollection;
-      const centroid = calculateCentroid(geojson);
+      const centroid = GisService.calculateCentroid(geojson);
       centroid.properties = { type: 'centroid', generated_at: new Date().toISOString() };
       
       const newGeojson = {

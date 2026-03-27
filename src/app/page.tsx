@@ -9,6 +9,8 @@ import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
 import { Loader2 } from 'lucide-react';
 import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
+import { validateGeoJSON } from '@/lib/schema';
+import { useToast } from '@/hooks/use-toast';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
@@ -38,6 +40,7 @@ export default function Home() {
   const [drawType, setDrawType] = useState<DrawType | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const { toast } = useToast();
   const [geojsonString, setGeojsonString] = useState(defaultGeoJsonString);
 
   useEffect(() => {
@@ -118,8 +121,19 @@ export default function Home() {
       worker.onmessage = (e) => {
         setIsParsing(false);
         if (e.data.success) {
+          // Validate using Zod
+          const validation = validateGeoJSON(e.data.data);
+          if (!validation.success) {
+            toast({
+              variant: 'destructive',
+              title: 'Invalid GeoJSON',
+              description: 'The data structure does not match the GeoJSON specification.'
+            });
+            return;
+          }
+
           try {
-            const featuresFromGeojson = format.readFeatures(e.data.data) as Feature<Geometry>[];
+            const featuresFromGeojson = format.readFeatures(validation.data) as Feature<Geometry>[];
             featuresFromGeojson.forEach((f, i) => {
               if (!f.getId()) f.setId(`feature_worker_${Date.now()}_${i}`);
             });
