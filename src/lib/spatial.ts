@@ -1,5 +1,6 @@
 import * as turf from '@turf/turf';
 import { Feature, FeatureCollection, Geometry, Polygon, MultiPolygon, Point } from 'geojson';
+import * as topojson from 'topojson-server';
 
 /**
  * GisService: A centralized service for geometric computations.
@@ -53,5 +54,12 @@ export const GisService = {
     // @ts-ignore
     const intersect = turf.intersect(turf.featureCollection([feat1 as any, feat2 as any]));
     return !!intersect;
+  },
+
+  /**
+   * Converts GeoJSON FeatureCollection to TopoJSON.
+   */
+  toTopoJSON(geojson: FeatureCollection): any {
+    return topojson.topology({ data: geojson });
   }
 };

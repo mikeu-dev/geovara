@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
 import { validateGeoJSON } from '@/lib/schema';
 import { useToast } from '@/hooks/use-toast';
+import { useUndoHistory } from '@/hooks/useUndoHistory';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
@@ -38,74 +39,58 @@ export default function Home() {
   const [features, setFeatures] = useState<Feature<Geometry>[]>([]);
   const [selectedFeature, setSelectedFeature] = useState<Feature<Geometry> | null>(null);
   const [drawType, setDrawType] = useState<DrawType | null>(null);
+  const [projection, setProjection] = useState<'EPSG:4326' | 'EPSG:3857'>('EPSG:3857');
   const [isClient, setIsClient] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const { toast } = useToast();
-  const [geojsonString, setGeojsonString] = useState(defaultGeoJsonString);
+  
+  // Undo/Redo History for the GeoJSON string
+  const { 
+    state: geojsonString, 
+    set: setGeojsonString, 
+    undo, 
+    redo, 
+    canUndo, 
+    canRedo,
+    reset: resetHistory
+  } = useUndoHistory(defaultGeoJsonString);
 
-  useEffect(() => {
-    setIsClient(true);
-    // Initial load from URL
-    const encoded = getEncodedFromHash();
-    if (encoded) {
-      const decoded = decodeGeoJSON(encoded);
-      if (decoded && decoded !== defaultGeoJsonString) {
-        setGeojsonString(decoded);
-        try {
-          const geojson_obj = JSON.parse(decoded);
-          const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
-          featuresFromGeojson.forEach((f, i) => {
-            if (!f.getId()) f.setId(`feature_url_${Date.now()}_${i}`);
-          });
-          setFeatures(featuresFromGeojson);
-        } catch (e) {
-          console.error('Invalid GeoJSON in URL hash');
-        }
-      }
-    }
+  // --- Handlers (Moved up to fix hoisting) ---
+
+  const handleClear = useCallback(() => {
+    setFeatures([]);
+    setSelectedFeature(null);
   }, []);
 
-  useEffect(() => {
-    if (!features.length) {
-      setGeojsonString(defaultGeoJsonString);
-      return;
-    };
-    try {
-      const featuresToWrite = features.map(feature => {
-        const newFeature = feature.clone();
-        const properties = feature.getProperties();
-        // The geometry property is not a standard GeoJSON property and can cause issues.
-        delete properties.geometry; 
-        newFeature.setProperties(properties);
-        return newFeature;
-      });
-
-      const geojson = format.writeFeaturesObject(featuresToWrite);
-      const newGeojsonString = JSON.stringify(geojson, null, 2);
-      setGeojsonString(newGeojsonString);
-      
-      // Update URL hash
-      if (newGeojsonString !== defaultGeoJsonString) {
-        const encoded = encodeGeoJSON(newGeojsonString);
-        updateUrlHash(encoded);
-      } else {
-        updateUrlHash('');
+  const handleDeleteFeature = useCallback((featureId: string | number | undefined) => {
+    if (featureId) {
+      setFeatures(prev => prev.filter(f => f.getId() !== featureId));
+      if (selectedFeature && selectedFeature.getId() === featureId) {
+        setSelectedFeature(null);
       }
-    } catch (error) {
-      console.error('Error converting features to GeoJSON:', error);
-      setGeojsonString('Error generating GeoJSON');
     }
-  }, [features]);
+  }, [selectedFeature]);
   
-  useEffect(() => {
-    if (drawType === 'Delete' && selectedFeature) {
-      handleDeleteFeature(selectedFeature.getId());
-      setDrawType(null);
-    }
-  }, [drawType, selectedFeature]);
+  const handleFeaturePropertyChange = useCallback((featureId: string | number, key: string, value: any) => {
+    setFeatures(prev => {
+        const newFeatures = [...prev];
+        const feature = newFeatures.find(f => f.getId() === featureId);
+        if (feature) {
+            if (value === null || value === undefined) {
+              feature.unset(key);
+            } else {
+              feature.set(key, value);
+            }
+        }
+        return newFeatures;
+    });
+  }, []);
 
+  const handleFeatureSelect = useCallback((feature: Feature<Geometry> | null) => {
+    setSelectedFeature(feature);
+  }, []);
 
-  const handleGeojsonChange = (value: string | undefined) => {
+  const handleGeojsonChange = useCallback((value: string | undefined) => {
     const newGeojsonString = value || '';
     setGeojsonString(newGeojsonString);
     if (!newGeojsonString.trim() || newGeojsonString.trim() === defaultGeoJsonString) {
@@ -163,40 +148,74 @@ export default function Home() {
         // Invalid GeoJSON, do nothing
       }
     }
-  }
+  }, [setGeojsonString, toast]);
 
-  const handleClear = () => {
-    setFeatures([]);
-    setSelectedFeature(null);
-  };
+  // --- Effects ---
 
-  const handleDeleteFeature = useCallback((featureId: string | number | undefined) => {
-    if (featureId) {
-      setFeatures(prev => prev.filter(f => f.getId() !== featureId));
-      if (selectedFeature && selectedFeature.getId() === featureId) {
-        setSelectedFeature(null);
+  useEffect(() => {
+    setIsClient(true);
+    // Initial load from URL
+    const encoded = getEncodedFromHash();
+    if (encoded) {
+      const decoded = decodeGeoJSON(encoded);
+      if (decoded && decoded !== defaultGeoJsonString) {
+        setGeojsonString(decoded);
+        resetHistory(decoded); // Reset history with the decoded value
+        try {
+          const geojson_obj = JSON.parse(decoded);
+          const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
+          featuresFromGeojson.forEach((f, i) => {
+            if (!f.getId()) f.setId(`feature_url_${Date.now()}_${i}`);
+          });
+          setFeatures(featuresFromGeojson);
+        } catch (e) {
+          console.error('Invalid GeoJSON in URL hash');
+        }
       }
     }
-  }, [selectedFeature]);
-  
-  const handleFeaturePropertyChange = useCallback((featureId: string | number, key: string, value: any) => {
-    setFeatures(prev => {
-        const newFeatures = [...prev];
-        const feature = newFeatures.find(f => f.getId() === featureId);
-        if (feature) {
-            if (value === null || value === undefined) {
-              feature.unset(key);
-            } else {
-              feature.set(key, value);
-            }
-        }
-        return newFeatures;
-    });
-  }, []);
+  }, [resetHistory, setGeojsonString]);
 
-  const handleFeatureSelect = useCallback((feature: Feature<Geometry> | null) => {
-    setSelectedFeature(feature);
-  }, []);
+  useEffect(() => {
+    if (!features.length) {
+      if (geojsonString !== defaultGeoJsonString) {
+        setGeojsonString(defaultGeoJsonString);
+      }
+      return;
+    };
+    try {
+      const featuresToWrite = features.map(feature => {
+        const newFeature = feature.clone();
+        const properties = feature.getProperties();
+        delete properties.geometry; 
+        newFeature.setProperties(properties);
+        return newFeature;
+      });
+
+      const geojson = format.writeFeaturesObject(featuresToWrite);
+      const newGeojsonString = JSON.stringify(geojson, null, 2);
+      
+      if (newGeojsonString !== geojsonString) {
+         setGeojsonString(newGeojsonString);
+      }
+      
+      // Update URL hash
+      if (newGeojsonString !== defaultGeoJsonString) {
+        const encoded = encodeGeoJSON(newGeojsonString);
+        updateUrlHash(encoded);
+      } else {
+        updateUrlHash('');
+      }
+    } catch (error) {
+      console.error('Error converting features to GeoJSON:', error);
+    }
+  }, [features, geojsonString, setGeojsonString]);
+  
+  useEffect(() => {
+    if (drawType === 'Delete' && selectedFeature) {
+      handleDeleteFeature(selectedFeature.getId());
+      setDrawType(null);
+    }
+  }, [drawType, selectedFeature, handleDeleteFeature]);
 
   return (
     <main className="flex h-full flex-col md:flex-row bg-background text-foreground">
@@ -205,6 +224,12 @@ export default function Home() {
         onGeojsonChange={handleGeojsonChange}
         featuresCount={features.length}
         onClear={handleClear}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        projection={projection}
+        onProjectionChange={setProjection}
       />
       <div className="flex-grow h-full w-full relative">
         {isClient ? (
@@ -226,6 +251,7 @@ export default function Home() {
               onFeatureSelect={handleFeatureSelect}
               onDeleteFeature={handleDeleteFeature}
               onFeaturePropertyChange={handleFeaturePropertyChange}
+              projection={projection}
             />
           </>
         ) : <MapSkeleton />}

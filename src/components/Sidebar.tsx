@@ -22,7 +22,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { 
   Copy, Trash2, CheckCircle, AlertTriangle, Loader2, 
   FileDown, Sparkles, Sun, Moon, Check, Link2, 
-  Map as MapIcon, Crosshair, Share2 
+  Map as MapIcon, Crosshair, Share2, Undo2, Redo2 
 } from 'lucide-react';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { GisService } from '@/lib/spatial';
@@ -48,6 +48,12 @@ interface SidebarProps {
   onGeojsonChange: (value: string | undefined) => void;
   featuresCount: number;
   onClear: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  projection: 'EPSG:4326' | 'EPSG:3857';
+  onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -60,7 +66,18 @@ const kmlFormat = new KML({
   showPointNames: true,
 });
 
-export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount, onClear }: SidebarProps) {
+export default function Sidebar({ 
+  geojsonString, 
+  onGeojsonChange, 
+  featuresCount, 
+  onClear,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  projection,
+  onProjectionChange
+}: SidebarProps) {
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
   const [validationFeedback, setValidationFeedback] = useState('');
@@ -235,7 +252,28 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
     }
   }, [geojsonString]);
 
-  const handleDownload = async (format: 'geojson' | 'kml' | 'kmz') => {
+  const handleDownload = async (format: 'geojson' | 'kml' | 'kmz' | 'topojson') => {
+    if (format === 'topojson') {
+      if (!geojsonString) return;
+      try {
+        const geojson = JSON.parse(geojsonString) as FeatureCollection;
+        const topo = GisService.toTopoJSON(geojson);
+        const blob = new Blob([JSON.stringify(topo)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'map.topojson';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: 'Successfully downloaded TopoJSON' });
+      } catch (e) {
+        toast({ title: 'Failed to generate TopoJSON', variant: 'destructive' });
+      }
+      return;
+    }
+
     if (!geojsonString) {
       toast({ title: 'No data to save', variant: 'destructive' });
       return;
@@ -312,6 +350,32 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                     </Tooltip>
                   </MenubarMenu>
 
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" disabled={!canUndo} onClick={undo}>
+                          <Undo2 className="h-4 w-4" />
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Undo</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-9 h-9" disabled={!canRedo} onClick={redo}>
+                          <Redo2 className="h-4 w-4" />
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Redo</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </MenubarMenu>
+
                   <MenubarSeparator className="h-6 mx-1" />
 
                   <MenubarMenu>
@@ -338,6 +402,29 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                         <p>{isLinkCopied ? 'Link Copied!' : 'Share Map Link'}</p>
                       </TooltipContent>
                     </Tooltip>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <MenubarTrigger className="w-16 h-9 px-2 text-[10px] font-bold">
+                          {projection.split(':')[1]}
+                        </MenubarTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Change Projection (CRS)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <MenubarContent>
+                      <MenubarItem onClick={() => onProjectionChange('EPSG:3857')} className="flex items-center justify-between">
+                         Web Mercator (3857)
+                         {projection === 'EPSG:3857' && <Check className="w-3 h-3 ml-2" />}
+                      </MenubarItem>
+                      <MenubarItem onClick={() => onProjectionChange('EPSG:4326')} className="flex items-center justify-between">
+                         WGS 84 (4326)
+                         {projection === 'EPSG:4326' && <Check className="w-3 h-3 ml-2" />}
+                      </MenubarItem>
+                    </MenubarContent>
                   </MenubarMenu>
 
                   <MenubarMenu>
@@ -377,6 +464,9 @@ export default function Sidebar({ geojsonString, onGeojsonChange, featuresCount,
                     <MenubarContent>
                       <MenubarItem onClick={() => handleDownload('geojson')}>
                         Save as GeoJSON
+                      </MenubarItem>
+                      <MenubarItem onClick={() => handleDownload('topojson')}>
+                        Save as TopoJSON
                       </MenubarItem>
                       <MenubarItem onClick={() => handleDownload('kml')}>
                         Save as KML

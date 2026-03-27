@@ -19,6 +19,7 @@ interface MapProps {
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
   onDeleteFeature: (featureId: string | number | undefined) => void;
   onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
+  projection: 'EPSG:4326' | 'EPSG:3857';
 }
 
 const selectedStyle = new Style({

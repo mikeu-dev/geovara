@@ -26,6 +26,7 @@ interface UseMapOptions {
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
   onDeleteFeature: (id: string | number | undefined) => void;
   styleFunction: (feature: Feature<Geometry>) => any;
+  projection: 'EPSG:4326' | 'EPSG:3857';
 }
 
 export function useMap({
@@ -37,6 +38,7 @@ export function useMap({
   onFeatureSelect,
   onDeleteFeature,
   styleFunction,
+  projection,
 }: UseMapOptions) {
   const mapInstance = useRef<Map | null>(null);
   const vectorSource = useRef(new VectorSource());
@@ -216,6 +218,24 @@ export function useMap({
 
     source.changed();
   }, [features]);
+
+  // Sync View Projection
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+    
+    const currentProj = map.getView().getProjection().getCode();
+    if (currentProj !== projection) {
+       const center = map.getView().getCenter();
+       const zoom = map.getView().getZoom();
+       
+       map.setView(new View({
+         projection,
+         center: center ? center : [0, 0], // OL handles reprojection of center if possible, but simpler to just reset
+         zoom: zoom || 2,
+       }));
+    }
+  }, [projection]);
 
   return {
     map: mapInstance.current,
