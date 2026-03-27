@@ -5,8 +5,10 @@ export default function HelpContent() {
         <div className="prose prose-sm dark:prose-invert max-w-none p-4 rounded-md border border-border bg-card text-card-foreground">
             <h2>Help</h2>
             <p>
-                <strong>GeoDraw</strong> is a quick, simple tool for creating, viewing, and sharing maps. 
-                It's named after GeoJSON, an open standard format for spatial data, and it supports GeoJSON natively.
+                <strong>Geovara</strong> is a quick, simple tool for creating, viewing, and sharing maps. 
+                Whether you need to outline a construction site, map a delivery route, or design 
+                a retail catchment area, <strong>Geovara</strong> provides professional-grade tools 
+                in a browser-based environment.
             </p>
             <p>
                 Want to request a feature or report a bug? This is a demo app, but you can imagine an issue tracker link here!
@@ -58,7 +60,7 @@ export default function HelpContent() {
             
             <h3>URL API</h3>
             <p>
-                You can interact with GeoDraw programmatically via URL parameters.
+                You can interact with Geovara programmatically via URL parameters.
             </p>
             <h4>#map=zoom/latitude/longitude</h4>
             <p>

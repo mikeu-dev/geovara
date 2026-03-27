@@ -1,4 +1,4 @@
-# **App Name**: GeoDraw
+# **App Name**: Geovara
 
 ## Core Features:
 

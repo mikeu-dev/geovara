@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'GeoDraw',
+  title: 'Geovara',
   description: 'Draw geometries on a map and get GeoJSON.',
 };
 

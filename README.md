@@ -1,6 +1,6 @@
-# 🌍 Geo-Draw: Professional Geospatial Engineering Platform
+# 🌍 Geovara: Professional Geospatial Engineering Platform
 
-**Geo-Draw** is a high-performance, stateless geospatial editing platform designed for professional GIS workflows. Built with Next.js and OpenLayers, it transforms the concept of a simple map editor into an engineering-grade tool with advanced state management and spatial computation capabilities.
+**Geovara** is a high-performance, stateless geospatial editing platform designed for professional GIS workflows. Built with Next.js and OpenLayers, it transforms the concept of a simple map editor into an engineering-grade tool with advanced state management and spatial computation capabilities.
 
 ---
 
