@@ -8,6 +8,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
 import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Pentagon, Ruler, Maximize } from 'lucide-react';
 import BasemapSwitcher from './BasemapSwitcher';
+import MapScreenshot from './MapScreenshot';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
 import SceneViewSwitcher from './SceneViewSwitcher';
@@ -74,6 +75,7 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
           onProjectionChange={onProjectionChange} 
         />
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
+        <MapScreenshot map={map} />
       </div>
       <div className='drawing-controls'>
         <TooltipProvider>
