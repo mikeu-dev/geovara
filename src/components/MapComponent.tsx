@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMap, DrawType } from '@/hooks/useMap';
 import CesiumController from './CesiumController';
 import MeasurementController from './MeasurementController';
+import StatusBar from './StatusBar';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -194,6 +195,7 @@ export default function MapComponent(props: MapProps) {
         projection={props.projection}
         onProjectionChange={props.onProjectionChange}
       />
+      <StatusBar map={map} projection={props.projection} />
       <div ref={popupRef} className="ol-popup">
         {isPopupOpen && selectedFeature && (
           <FeaturePropertiesPopup

@@ -380,10 +380,10 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto">
-      <div className="p-4 border-b border-border">
-        <h1 className="text-2xl font-bold font-headline">Geovara</h1>
-        <p className="text-muted-foreground">Draw on the map, get GeoJSON.</p>
+    <aside className="w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col border-r border-border h-full overflow-y-auto sidebar-panel">
+      <div className="p-4 border-b border-border animate-slide-in-left">
+        <h1 className="text-2xl font-bold tracking-tight" style={{background: 'linear-gradient(135deg, hsl(173, 58%, 39%), hsl(210, 70%, 50%))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>Geovara</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Professional geospatial analysis toolkit</p>
       </div>
       <div className="flex flex-col flex-grow p-4 min-h-0">
         <Card className="flex flex-col flex-grow">
