@@ -265,4 +265,19 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.01em;
   }
+
+  /* ─── Keyboard Shortcut Badges ─── */
+  .kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: 'Inter', monospace;
+    font-weight: 600;
+    line-height: 1.4;
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+    border-radius: 4px;
+    margin: 0 2px;
+  }
 }

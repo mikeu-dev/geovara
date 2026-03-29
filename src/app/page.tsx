@@ -224,6 +224,41 @@ export default function Home() {
     }
   }, [drawType, selectedFeature, handleDeleteFeature]);
 
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if user is typing in an input/textarea/editor
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).closest('.monaco-editor')) return;
+
+      // Ctrl/Cmd shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey && canUndo) { e.preventDefault(); undo(); }
+        if ((e.key === 'y' || (e.key === 'z' && e.shiftKey)) && canRedo) { e.preventDefault(); redo(); }
+        return;
+      }
+
+      // Tool shortcuts (single key, no modifier)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        switch (e.key.toLowerCase()) {
+          case 'escape': setDrawType(null); setSelectedFeature(null); break;
+          case 'v': setDrawType(null); break;          // Select
+          case 'p': setDrawType('Point'); break;
+          case 'l': setDrawType('LineString'); break;
+          case 'g': setDrawType('Polygon'); break;
+          case 'r': setDrawType('Rectangle'); break;
+          case 'c': setDrawType('Circle'); break;
+          case 'm': setDrawType('MeasureDistance'); break;
+          case 'a': setDrawType('MeasureArea'); break;
+          case 'e': setDrawType('Edit'); break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canUndo, canRedo, undo, redo]);
+
   return (
     <main className="flex h-full flex-col md:flex-row bg-background text-foreground">
       <Sidebar 
