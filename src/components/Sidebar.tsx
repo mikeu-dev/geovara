@@ -54,6 +54,10 @@ interface SidebarProps {
   canRedo: boolean;
   projection: 'EPSG:4326' | 'EPSG:3857';
   onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
+  features: Feature<Geometry>[];
+  onDeleteFeature: (id: string | number | undefined) => void;
+  onZoomToFeature: (id: string | number) => void;
+  onFeatureSelect: (feature: Feature<Geometry> | null) => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -65,7 +69,6 @@ const kmlFormat = new KML({
   extractStyles: true,
   showPointNames: true,
 });
-
 export default function Sidebar({ 
   geojsonString, 
   onGeojsonChange, 
@@ -76,7 +79,11 @@ export default function Sidebar({
   canUndo,
   canRedo,
   projection,
-  onProjectionChange
+  onProjectionChange,
+  features,
+  onDeleteFeature,
+  onZoomToFeature,
+  onFeatureSelect
 }: SidebarProps) {
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
@@ -193,6 +200,57 @@ export default function Sidebar({
     } catch (error) {
        console.error('Centroid error:', error);
        toast({ title: 'Analysis failed', variant: 'destructive' });
+    }
+  };
+
+  const handleSimplify = () => {
+    if (!geojsonString) return;
+    const tolerance = prompt('Enter simplification tolerance (e.g. 0.01):', '0.01');
+    if (tolerance === null) return;
+    
+    const t = parseFloat(tolerance);
+    if (isNaN(t)) {
+      toast({ title: 'Invalid tolerance', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const geojson = JSON.parse(geojsonString) as FeatureCollection;
+      const simplifiedFeatures = geojson.features.map(f => {
+        const simplified = GisService.simplifyGeometry(f as any, t);
+        return { ...simplified, properties: { ...f.properties, simplified: true, tolerance: t } };
+      });
+
+      const newGeojson = { ...geojson, features: simplifiedFeatures };
+      onGeojsonChange(JSON.stringify(newGeojson, null, 2));
+      toast({ title: 'Geometry simplified' });
+    } catch (e) {
+      toast({ title: 'Simplification failed', variant: 'destructive' });
+    }
+  };
+
+  const handleUnion = () => {
+    if (!geojsonString) return;
+    try {
+      const geojson = JSON.parse(geojsonString) as FeatureCollection;
+      const polygons = geojson.features.filter(f => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon');
+      
+      if (polygons.length < 2) {
+        toast({ title: 'Need at least 2 polygons to union', variant: 'destructive' });
+        return;
+      }
+
+      const unioned = GisService.unionFeatures(polygons as any);
+      if (unioned) {
+        unioned.properties = { type: 'union_result', generated_at: new Date().toISOString() };
+        // Remove old polygons and add the new one
+        const otherFeatures = geojson.features.filter(f => f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon');
+        const newGeojson = { ...geojson, features: [...otherFeatures, unioned as any] };
+        onGeojsonChange(JSON.stringify(newGeojson, null, 2));
+        toast({ title: 'Polygons unioned successfully' });
+      }
+    } catch (e) {
+      toast({ title: 'Union failed', variant: 'destructive' });
     }
   };
 
@@ -447,6 +505,15 @@ export default function Sidebar({
                          <MapIcon className="w-4 h-4" />
                          Calculate Centroid
                       </MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem onClick={handleSimplify} className="flex items-center gap-2">
+                         <Sparkles className="w-4 h-4" />
+                         Simplify Geometry
+                      </MenubarItem>
+                      <MenubarItem onClick={handleUnion} className="flex items-center gap-2">
+                         <Copy className="w-4 h-4" />
+                         Union All Polygons
+                      </MenubarItem>
                     </MenubarContent>
                   </MenubarMenu>
 
@@ -483,6 +550,7 @@ export default function Sidebar({
             <Tabs defaultValue="json" className="flex-grow flex flex-col">
               <TabsList className="w-full">
                 <TabsTrigger value="json" className="flex-1">JSON</TabsTrigger>
+                <TabsTrigger value="features" className="flex-1">Features ({features.length})</TabsTrigger>
                 <TabsTrigger value="help" className="flex-1">Help</TabsTrigger>
               </TabsList>
               <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
@@ -545,6 +613,47 @@ export default function Sidebar({
                     <p className="break-words min-w-0">{validationFeedback}</p>
                   </div>
                 )}
+              </TabsContent>
+              <TabsContent value="features" className="flex-grow mt-2 overflow-y-auto">
+                <div className="space-y-2">
+                  {features.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground italic text-sm">
+                      No features drawn yet.
+                    </div>
+                  ) : (
+                    features.map((feature, idx) => (
+                      <Card key={feature.getId() || idx} className="p-2 mb-2 hover:bg-accent transition-colors cursor-pointer group" onClick={() => onFeatureSelect(feature)}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="text-xs font-mono truncate w-32">{String(feature.getId() || `Feature ${idx}`)}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">{feature.getGeometry()?.getType()}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onZoomToFeature(feature.getId()!); }}>
+                                  <Crosshair className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Zoom to</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDeleteFeature(feature.getId()); }}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Delete</p></TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
               </TabsContent>
               <TabsContent value="help" className="flex-grow mt-2 overflow-y-auto">
                 <HelpContent />

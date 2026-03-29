@@ -9,6 +9,7 @@ import DrawingTools from './DrawingTools';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import { useToast } from '@/hooks/use-toast';
 import { useMap, DrawType } from '@/hooks/useMap';
+import CesiumController from './CesiumController';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -20,6 +21,7 @@ interface MapProps {
   onDeleteFeature: (featureId: string | number | undefined) => void;
   onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
   projection: 'EPSG:4326' | 'EPSG:3857';
+  zoomToId: string | number | null;
 }
 
 const selectedStyle = new Style({
@@ -75,7 +77,7 @@ const styleFromProperties = (feature: Feature<Geometry>): Style | undefined => {
 };
 
 export default function MapComponent(props: MapProps) {
-  const { features, selectedFeature, onFeatureSelect, onDeleteFeature, drawType, setDrawType } = props;
+  const { features, selectedFeature, onFeatureSelect, onDeleteFeature, drawType, setDrawType, zoomToId } = props;
   const mapRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -145,6 +147,28 @@ export default function MapComponent(props: MapProps) {
     if (selectedFeature) setIsPopupOpen(true);
   }, [selectedFeature]);
 
+  // Handle ZoomTo request
+  useEffect(() => {
+    if (zoomToId && map) {
+      const feature = map.getLayers().getArray()
+        .filter(l => (l as any).getSource()?.getFeatureById)
+        .map(l => (l as any).getSource().getFeatureById(zoomToId))
+        .find(f => f);
+
+      if (feature) {
+        const geometry = feature.getGeometry();
+        if (geometry) {
+          map.getView().fit(geometry.getExtent(), {
+            padding: [50, 50, 50, 50],
+            duration: 1000,
+            maxZoom: 18
+          });
+          onFeatureSelect(feature);
+        }
+      }
+    }
+  }, [zoomToId, map, onFeatureSelect]);
+
   const handleToggle3d = () => {
     setIs3d(!is3d);
     if (!is3d) toast({ title: "3D mode is under development.", duration: 3000 });
@@ -152,6 +176,7 @@ export default function MapComponent(props: MapProps) {
 
   return (
     <div ref={mapRef} className="w-full h-full relative">
+      <CesiumController map={map} enabled={is3d} />
       <DrawingTools 
         map={map} 
         drawType={drawType} 

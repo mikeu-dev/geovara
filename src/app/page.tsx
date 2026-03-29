@@ -42,6 +42,7 @@ export default function Home() {
   const [projection, setProjection] = useState<'EPSG:4326' | 'EPSG:3857'>('EPSG:3857');
   const [isClient, setIsClient] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const [zoomToId, setZoomToId] = useState<string | number | null>(null);
   const { toast } = useToast();
   
   // Undo/Redo History for the GeoJSON string
@@ -56,6 +57,12 @@ export default function Home() {
   } = useUndoHistory(defaultGeoJsonString);
 
   // --- Handlers (Moved up to fix hoisting) ---
+
+  const handleZoomTo = useCallback((id: string | number) => {
+    setZoomToId(id);
+    // Reset after a short delay so it can be triggered again for the same ID
+    setTimeout(() => setZoomToId(null), 100);
+  }, []);
 
   const handleClear = useCallback(() => {
     setFeatures([]);
@@ -223,6 +230,7 @@ export default function Home() {
         geojsonString={geojsonString}
         onGeojsonChange={handleGeojsonChange}
         featuresCount={features.length}
+        features={features}
         onClear={handleClear}
         undo={undo}
         redo={redo}
@@ -230,6 +238,9 @@ export default function Home() {
         canRedo={canRedo}
         projection={projection}
         onProjectionChange={setProjection}
+        onDeleteFeature={handleDeleteFeature}
+        onZoomToFeature={handleZoomTo}
+        onFeatureSelect={handleFeatureSelect}
       />
       <div className="flex-grow h-full w-full relative">
         {isClient ? (
@@ -252,6 +263,7 @@ export default function Home() {
               onDeleteFeature={handleDeleteFeature}
               onFeaturePropertyChange={handleFeaturePropertyChange}
               projection={projection}
+              zoomToId={zoomToId}
             />
           </>
         ) : <MapSkeleton />}

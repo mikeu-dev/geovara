@@ -61,5 +61,30 @@ export const GisService = {
    */
   toTopoJSON(geojson: FeatureCollection): any {
     return topojson.topology({ data: geojson });
+  },
+
+  /**
+   * Simplifies a feature's geometry.
+   */
+  simplifyGeometry(
+    feature: Feature<Geometry>,
+    tolerance: number = 0.01,
+    highQuality: boolean = false
+  ): Feature<Geometry> {
+    // @ts-ignore
+    return turf.simplify(feature, { tolerance, highQuality });
+  },
+
+  /**
+   * Combines multiple features into one.
+   */
+  unionFeatures(
+     features: Feature<Geometry>[]
+  ): Feature<Polygon | MultiPolygon> | null {
+    if (features.length < 2) return null;
+    // @ts-ignore
+    const collection = turf.featureCollection(features as any);
+    // @ts-ignore
+    return turf.union(collection);
   }
 };
