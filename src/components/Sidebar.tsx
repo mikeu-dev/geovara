@@ -36,6 +36,9 @@ import { Geometry } from 'ol/geom';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpContent from './HelpContent';
+import FileDropZone from './FileDropZone';
+import { getArea, getLength } from 'ol/sphere';
+import { LineString, Polygon, MultiPolygon } from 'ol/geom';
 
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -588,42 +591,74 @@ export default function Sidebar({
               </TabsContent>
               <TabsContent value="features" className="flex-grow mt-2 overflow-y-auto">
                 <div className="space-y-2">
+                  <FileDropZone onFileLoad={(content, filename) => {
+                    try {
+                      let geojsonStr = content;
+                      if (filename.endsWith('.kml')) {
+                        const kmlFeatures = kmlFormat.readFeatures(content, { featureProjection: 'EPSG:3857' });
+                        const gjFormat = new GeoJSON({ featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' });
+                        geojsonStr = gjFormat.writeFeatures(kmlFeatures as any);
+                      }
+                      onGeojsonChange(geojsonStr);
+                      toast({ title: `Imported ${filename}` });
+                    } catch (err) {
+                      toast({ title: 'Import failed', description: 'Could not parse the file.', variant: 'destructive' });
+                    }
+                  }} />
                   {features.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground italic text-sm">
+                    <div className="text-center py-6 text-muted-foreground italic text-sm">
                       No features drawn yet.
                     </div>
                   ) : (
-                    features.map((feature, idx) => (
-                      <Card key={feature.getId() || idx} className="p-2 mb-2 hover:bg-accent transition-colors cursor-pointer group" onClick={() => onFeatureSelect(feature)}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                            <div className="flex flex-col">
-                              <span className="text-xs font-mono truncate w-32">{String(feature.getId() || `Feature ${idx}`)}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase">{feature.getGeometry()?.getType()}</span>
+                    features.map((feature, idx) => {
+                      const geom = feature.getGeometry();
+                      const geomType = geom?.getType();
+                      let stat = '';
+                      if (geom && (geomType === 'Polygon' || geomType === 'MultiPolygon')) {
+                        const area = getArea(geom);
+                        stat = area > 1e6 ? `${(area / 1e6).toFixed(2)} km²` : `${area.toFixed(0)} m²`;
+                      } else if (geom && (geomType === 'LineString' || geomType === 'MultiLineString')) {
+                        const len = getLength(geom);
+                        stat = len > 1000 ? `${(len / 1000).toFixed(2)} km` : `${len.toFixed(0)} m`;
+                      }
+                      return (
+                        <Card key={feature.getId() || idx} className="p-2.5 mb-1.5 hover:bg-accent/50 transition-all duration-150 cursor-pointer border-border/60" onClick={() => onFeatureSelect(feature)}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                geomType?.includes('Polygon') ? 'bg-accent' :
+                                geomType?.includes('Line') ? 'bg-blue-500' : 'bg-orange-500'
+                              }`} />
+                              <div className="flex flex-col">
+                                <span className="text-xs font-medium truncate w-28">{String(feature.getId() || `Feature ${idx}`)}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-muted-foreground uppercase">{geomType}</span>
+                                  {stat && <span className="text-[10px] text-accent font-medium">· {stat}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onZoomToFeature(feature.getId()!); }}>
+                                    <Crosshair className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Zoom to</p></TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDeleteFeature(feature.getId()); }}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Delete</p></TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onZoomToFeature(feature.getId()!); }}>
-                                  <Crosshair className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Zoom to</p></TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDeleteFeature(feature.getId()); }}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Delete</p></TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
+                        </Card>
+                      );
+                    })
                   )}
                 </div>
               </TabsContent>
