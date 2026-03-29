@@ -31,7 +31,8 @@ export default function SceneViewSwitcher({ is3d, onToggle3d, projection, onProj
       if (!is3d) onToggle3d();
     } else {
       if (is3d) onToggle3d(); // Turn off 3D
-      onProjectionChange(mode as any);
+      const fullProj = mode === '3857' ? 'EPSG:3857' : 'EPSG:4326';
+      onProjectionChange(fullProj as any);
     }
   };
 

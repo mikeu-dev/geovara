@@ -7,7 +7,7 @@ import VectorImageLayer from 'ol/layer/VectorImage';
 import { Draw, Modify, Select, DragAndDrop } from 'ol/interaction';
 import { createBox } from 'ol/interaction/Draw';
 import GeoJSON from 'ol/format/GeoJSON';
-import { fromLonLat, toLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat, transform } from 'ol/proj';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { DrawEvent } from 'ol/interaction/Draw';
@@ -224,14 +224,22 @@ export function useMap({
     const map = mapInstance.current;
     if (!map) return;
     
-    const currentProj = map.getView().getProjection().getCode();
+    const view = map.getView();
+    if (!view) return;
+    
+    const projectionObj = view.getProjection();
+    const currentProj = projectionObj ? projectionObj.getCode() : 'EPSG:3857';
+    
     if (currentProj !== projection) {
-       const center = map.getView().getCenter();
-       const zoom = map.getView().getZoom();
+       const center = view.getCenter();
+       const zoom = view.getZoom();
+       
+       // Explicitly transform center between projections to avoid "out of bounds" crashes
+       const newCenter = center ? transform(center, currentProj, projection) : [0, 0];
        
        map.setView(new View({
          projection,
-         center: center ? center : [0, 0], // OL handles reprojection of center if possible, but simpler to just reset
+         center: newCenter,
          zoom: zoom || 2,
        }));
     }
