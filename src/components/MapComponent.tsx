@@ -10,6 +10,7 @@ import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import { useToast } from '@/hooks/use-toast';
 import { useMap, DrawType } from '@/hooks/useMap';
 import CesiumController from './CesiumController';
+import MeasurementController from './MeasurementController';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -178,6 +179,10 @@ export default function MapComponent(props: MapProps) {
   return (
     <div ref={mapRef} className="w-full h-full relative">
       <CesiumController map={map} enabled={is3d} />
+      <MeasurementController 
+        map={map} 
+        activeType={drawType === 'MeasureDistance' || drawType === 'MeasureArea' ? drawType : null} 
+      />
       <DrawingTools 
         map={map} 
         drawType={drawType} 

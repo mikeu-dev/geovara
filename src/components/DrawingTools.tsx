@@ -6,7 +6,7 @@ import type { Map } from 'ol';
 import type { DrawType } from '@/app/page';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Pentagon } from 'lucide-react';
+import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Pentagon, Ruler, Maximize } from 'lucide-react';
 import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
@@ -148,6 +148,33 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
                     </Toggle>
                 </TooltipTrigger>
                 <TooltipContent side="left"><p>Draw Circle</p></TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="horizontal" className="my-1 bg-border" />
+            
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Measure distance"
+                        pressed={drawType === 'MeasureDistance'}
+                        onPressedChange={() => handleDrawTypeChange('MeasureDistance')}
+                    >
+                        <Ruler className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Measure Distance</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Toggle
+                        aria-label="Measure area"
+                        pressed={drawType === 'MeasureArea'}
+                        onPressedChange={() => handleDrawTypeChange('MeasureArea')}
+                    >
+                        <Maximize className="h-4 w-4" />
+                    </Toggle>
+                </TooltipTrigger>
+                <TooltipContent side="left"><p>Measure Area</p></TooltipContent>
             </Tooltip>
 
             {featuresCount > 0 && (

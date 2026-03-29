@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 
 
-export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
+export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete' | 'MeasureDistance' | 'MeasureArea';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,

@@ -15,7 +15,7 @@ import { SelectEvent } from 'ol/interaction/Select';
 import { ModifyEvent } from 'ol/interaction/Modify';
 import { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
 
-export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete';
+export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete' | 'MeasureDistance' | 'MeasureArea';
 
 interface UseMapOptions {
   target: React.RefObject<HTMLDivElement | null>;
