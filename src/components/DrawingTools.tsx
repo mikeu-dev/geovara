@@ -10,8 +10,7 @@ import { MapPin, Spline, Square, Circle, Pointer, Pencil, Trash2, Pentagon } fro
 import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
-import MapModeToggle from './MapModeToggle';
-import ProjectionSwitcher from './ProjectionSwitcher';
+import SceneViewSwitcher from './SceneViewSwitcher';
 import {
     Tooltip,
     TooltipContent,
@@ -68,8 +67,12 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
   return (
     <div ref={controlRef} className="drawing-tools ol-control ol-unselectable">
        <div className='flex flex-col items-center gap-2'>
-        <MapModeToggle is3d={is3d} onToggle3d={onToggle3d} />
-        <ProjectionSwitcher projection={projection} onProjectionChange={onProjectionChange} />
+        <SceneViewSwitcher 
+          is3d={is3d} 
+          onToggle3d={onToggle3d} 
+          projection={projection} 
+          onProjectionChange={onProjectionChange} 
+        />
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
       </div>
       <div className='drawing-controls'>
