@@ -12,6 +12,7 @@ import { useMap, DrawType } from '@/hooks/useMap';
 import CesiumController from './CesiumController';
 import MeasurementController from './MeasurementController';
 import StatusBar from './StatusBar';
+import LocationSearch from './LocationSearch';
 
 interface MapProps {
   features: Feature<Geometry>[];
@@ -179,6 +180,7 @@ export default function MapComponent(props: MapProps) {
 
   return (
     <div ref={mapRef} className="w-full h-full relative">
+      <LocationSearch map={map} />
       <CesiumController map={map} enabled={is3d} />
       <MeasurementController 
         map={map} 
