@@ -236,8 +236,6 @@ export default function Home() {
         redo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
-        projection={projection}
-        onProjectionChange={setProjection}
         onDeleteFeature={handleDeleteFeature}
         onZoomToFeature={handleZoomTo}
         onFeatureSelect={handleFeatureSelect}
@@ -263,6 +261,7 @@ export default function Home() {
               onDeleteFeature={handleDeleteFeature}
               onFeaturePropertyChange={handleFeaturePropertyChange}
               projection={projection}
+              onProjectionChange={setProjection}
               zoomToId={zoomToId}
             />
           </>

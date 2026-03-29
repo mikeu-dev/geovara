@@ -11,6 +11,7 @@ import BasemapSwitcher from './BasemapSwitcher';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
 import MapModeToggle from './MapModeToggle';
+import ProjectionSwitcher from './ProjectionSwitcher';
 import {
     Tooltip,
     TooltipContent,
@@ -26,9 +27,11 @@ interface DrawingToolsProps {
   tileLayer: TileLayer<OSM | XYZ> | null;
   is3d: boolean;
   onToggle3d: () => void;
+  projection: 'EPSG:4326' | 'EPSG:3857';
+  onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
 }
 
-export default function DrawingTools({ map, drawType, setDrawType, featuresCount, tileLayer, is3d, onToggle3d }: DrawingToolsProps) {
+export default function DrawingTools({ map, drawType, setDrawType, featuresCount, tileLayer, is3d, onToggle3d, projection, onProjectionChange }: DrawingToolsProps) {
   const controlRef = useRef<HTMLDivElement>(null);
   const customControlRef = useRef<Control | null>(null);
   
@@ -66,6 +69,7 @@ export default function DrawingTools({ map, drawType, setDrawType, featuresCount
     <div ref={controlRef} className="drawing-tools ol-control ol-unselectable">
        <div className='flex flex-col items-center gap-2'>
         <MapModeToggle is3d={is3d} onToggle3d={onToggle3d} />
+        <ProjectionSwitcher projection={projection} onProjectionChange={onProjectionChange} />
         <BasemapSwitcher tileLayer={tileLayer} map={map} />
       </div>
       <div className='drawing-controls'>

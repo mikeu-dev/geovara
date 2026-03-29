@@ -52,8 +52,6 @@ interface SidebarProps {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  projection: 'EPSG:4326' | 'EPSG:3857';
-  onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
   features: Feature<Geometry>[];
   onDeleteFeature: (id: string | number | undefined) => void;
   onZoomToFeature: (id: string | number) => void;
@@ -78,8 +76,6 @@ export default function Sidebar({
   redo,
   canUndo,
   canRedo,
-  projection,
-  onProjectionChange,
   features,
   onDeleteFeature,
   onZoomToFeature,
@@ -461,30 +457,6 @@ export default function Sidebar({
                       </TooltipContent>
                     </Tooltip>
                   </MenubarMenu>
-
-                  <MenubarMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <MenubarTrigger className="w-16 h-9 px-2 text-[10px] font-bold">
-                          {projection.split(':')[1]}
-                        </MenubarTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Change Projection (CRS)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <MenubarContent>
-                      <MenubarItem onClick={() => onProjectionChange('EPSG:3857')} className="flex items-center justify-between">
-                         Web Mercator (3857)
-                         {projection === 'EPSG:3857' && <Check className="w-3 h-3 ml-2" />}
-                      </MenubarItem>
-                      <MenubarItem onClick={() => onProjectionChange('EPSG:4326')} className="flex items-center justify-between">
-                         WGS 84 (4326)
-                         {projection === 'EPSG:4326' && <Check className="w-3 h-3 ml-2" />}
-                      </MenubarItem>
-                    </MenubarContent>
-                  </MenubarMenu>
-
                   <MenubarMenu>
                     <Tooltip>
                       <TooltipTrigger asChild>

@@ -21,6 +21,7 @@ interface MapProps {
   onDeleteFeature: (featureId: string | number | undefined) => void;
   onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
   projection: 'EPSG:4326' | 'EPSG:3857';
+  onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
   zoomToId: string | number | null;
 }
 
@@ -185,6 +186,8 @@ export default function MapComponent(props: MapProps) {
         tileLayer={tileLayer}
         is3d={is3d} 
         onToggle3d={handleToggle3d} 
+        projection={props.projection}
+        onProjectionChange={props.onProjectionChange}
       />
       <div ref={popupRef} className="ol-popup">
         {isPopupOpen && selectedFeature && (
