@@ -12,6 +12,9 @@ import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from 
 import { validateGeoJSON } from '@/lib/schema';
 import { useToast } from '@/hooks/use-toast';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
+import { GisService } from '@/lib/spatial';
+import AIAssistant from '@/components/AIAssistant';
+import { SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete' | 'MeasureDistance' | 'MeasureArea';
@@ -217,6 +220,71 @@ export default function Home() {
     }
   }, [features, geojsonString, setGeojsonString]);
   
+  const handleAIAction = useCallback(async (result: SpatialIntentOutput) => {
+    switch (result.action) {
+      case 'flyTo':
+        if (result.params?.query) {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(result.params.query)}&limit=1`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+              // Custom event for MapComponent to pick up and fly to
+              window.dispatchEvent(new CustomEvent('map:flyto', { 
+                detail: { lon: parseFloat(data[0].lon), lat: parseFloat(data[0].lat), boundingbox: data[0].boundingbox } 
+              }));
+            }
+          } catch (err) {
+            console.error('AI FlyTo error:', err);
+          }
+        }
+        break;
+      case 'buffer':
+        if (features.length > 0) {
+          const radius = result.params?.radius || 1;
+          const units = result.params?.units || 'kilometers';
+          const newBufferedFeatures: Feature<Geometry>[] = [];
+          
+          features.forEach(f => {
+            try {
+              const geojsonFeature = format.writeFeatureObject(f) as any;
+              const buffered = GisService.createBuffer(geojsonFeature, radius, units);
+              const olFeature = format.readFeature(buffered) as Feature<Geometry>;
+              olFeature.setId(`buffer_${Date.now()}_${Math.random()}`);
+              newBufferedFeatures.push(olFeature);
+            } catch (e) {
+              console.warn('Skipping buffer for feature', f.getId());
+            }
+          });
+          
+          if (newBufferedFeatures.length > 0) {
+            setFeatures(prev => [...prev, ...newBufferedFeatures]);
+          }
+        }
+        break;
+      case 'centroid':
+        if (features.length > 0) {
+          try {
+            const collection = format.writeFeaturesObject(features) as any;
+            const centroid = GisService.calculateCentroid(collection);
+            const olFeature = format.readFeature(centroid) as Feature<Geometry>;
+            olFeature.setId(`centroid_${Date.now()}`);
+            setFeatures(prev => [...prev, olFeature]);
+          } catch (e) {
+            console.error('Centroid calculation failed');
+          }
+        }
+        break;
+      case 'clear':
+        handleClear();
+        break;
+      case 'delete':
+        if (selectedFeature) {
+          handleDeleteFeature(selectedFeature.getId());
+        }
+        break;
+    }
+  }, [features, selectedFeature, handleClear, handleDeleteFeature, format]);
+
   useEffect(() => {
     if (drawType === 'Delete' && selectedFeature) {
       handleDeleteFeature(selectedFeature.getId());
@@ -302,6 +370,10 @@ export default function Home() {
           </>
         ) : <MapSkeleton />}
       </div>
+      <AIAssistant 
+        onAction={handleAIAction} 
+        featureContext={`${features.length} features on map (${features.map(f => f.getGeometry()?.getType()).join(', ')})`} 
+      />
     </main>
   );
 }

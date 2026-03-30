@@ -7,7 +7,7 @@ import VectorImageLayer from 'ol/layer/VectorImage';
 import { Draw, Modify, Select, DragAndDrop } from 'ol/interaction';
 import { createBox } from 'ol/interaction/Draw';
 import GeoJSON from 'ol/format/GeoJSON';
-import { fromLonLat, toLonLat, transform } from 'ol/proj';
+import { fromLonLat, toLonLat, transform, transformExtent } from 'ol/proj';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { DrawEvent } from 'ol/interaction/Draw';
@@ -150,8 +150,24 @@ export function useMap({
     modifyInteraction.current = new Modify({ source: vectorSource.current });
     map.addInteraction(modifyInteraction.current);
     modifyInteraction.current.on('modifyend', () => setFeatures(prev => [...prev]));
+    
+    // Global FlyTo Listener
+    const handleFlyTo = (e: any) => {
+      const { lon, lat, boundingbox } = e.detail;
+      const view = map.getView();
+      if (boundingbox) {
+        // [minLat, maxLat, minLon, maxLon] from Nominatim
+        const [minLat, maxLat, minLon, maxLon] = boundingbox.map(parseFloat);
+        const extent = transformExtent([minLon, minLat, maxLon, maxLat], 'EPSG:4326', 'EPSG:3857');
+        view.fit(extent, { duration: 1000, padding: [50, 50, 50, 50] });
+      } else if (lon !== undefined && lat !== undefined) {
+        view.animate({ center: fromLonLat([lon, lat]), zoom: 16, duration: 1000 });
+      }
+    };
+    window.addEventListener('map:flyto', handleFlyTo);
 
     return () => {
+      window.removeEventListener('map:flyto', handleFlyTo);
       window.removeEventListener('hashchange', updateViewFromHash);
       if (mapInstance.current) {
         mapInstance.current.dispose();
