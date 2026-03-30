@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Map } from 'ol';
 import { fromLonLat } from 'ol/proj';
 import { Search, MapPin, Loader2, X } from 'lucide-react';
-import { fetchNominatim, nominatimSearchUrl } from '@/lib/nominatim';
+import { nominatimSearchUrl, nominatimSearchResults } from '@/lib/nominatim';
 
 interface SearchResult {
   place_id: number;
@@ -54,8 +54,7 @@ export default function LocationSearch({ map }: LocationSearchProps) {
         limit: 5,
         addressdetails: 0,
       });
-      const res = await fetchNominatim(url);
-      const data: SearchResult[] = await res.json();
+      const data = (await nominatimSearchResults(url)) as SearchResult[];
       setResults(data);
       setIsOpen(data.length > 0);
     } catch (err) {

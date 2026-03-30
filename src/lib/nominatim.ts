@@ -44,3 +44,29 @@ export function fetchNominatim(url: string): Promise<Response> {
   nominatimQueue = run.then(() => undefined, () => undefined);
   return run;
 }
+
+export type NominatimHit = {
+  place_id?: number;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  type?: string;
+  boundingbox?: string[];
+};
+
+/**
+ * Throttled fetch, HTTP check, and safe JSON parse (empty array if not a JSON array).
+ */
+export async function nominatimSearchResults(url: string): Promise<NominatimHit[]> {
+  const res = await fetchNominatim(url);
+  if (!res.ok) {
+    throw new Error(`Nominatim HTTP ${res.status}`);
+  }
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('Nominatim returned non-JSON');
+  }
+  return Array.isArray(data) ? (data as NominatimHit[]) : [];
+}

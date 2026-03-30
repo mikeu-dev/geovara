@@ -14,7 +14,8 @@ export default function HelpContent() {
             <h3>Getting Started</h3>
             <p>
                 <strong>Import files:</strong> Drag and drop GeoJSON, KML, or TopoJSON files onto the Features tab, 
-                or click the upload zone to browse. Your data will appear on the map and in the editor.
+                or click the upload zone to browse. You can also drop GeoJSON or KML directly onto the map viewport. 
+                Your data will appear on the map and in the editor.
             </p>
             <p>
                 <strong>Search locations:</strong> Use the search bar at the top of the map to find and fly to any location worldwide.

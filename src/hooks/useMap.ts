@@ -8,6 +8,7 @@ import VectorImageLayer from 'ol/layer/VectorImage';
 import { Draw, Modify, Select, DragAndDrop } from 'ol/interaction';
 import { createBox } from 'ol/interaction/Draw';
 import GeoJSON from 'ol/format/GeoJSON';
+import KML from 'ol/format/KML';
 import { fromLonLat, toLonLat, transform, transformExtent } from 'ol/proj';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
@@ -129,7 +130,10 @@ export function useMap({
 
     // Drag and Drop
     const dragAndDrop = new DragAndDrop({
-      formatConstructors: [new GeoJSON({ featureProjection: 'EPSG:3857' })],
+      formatConstructors: [
+        new GeoJSON({ featureProjection: 'EPSG:3857' }),
+        new KML({ extractStyles: true, showPointNames: true }),
+      ],
     });
     dragAndDrop.on('addfeatures', (event: DragAndDropEvent) => {
       const dropped = event.features as Feature<Geometry>[];

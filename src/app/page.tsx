@@ -9,7 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
 import { Loader2 } from 'lucide-react';
 import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
-import { fetchNominatim, nominatimSearchUrl } from '@/lib/nominatim';
+import { nominatimSearchUrl, nominatimSearchResults } from '@/lib/nominatim';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { GisService } from '@/lib/spatial';
 import AIAssistant from '@/components/AIAssistant';
@@ -223,19 +223,24 @@ export default function Home() {
       case 'flyTo':
         if (result.params?.query) {
           try {
-            const res = await fetchNominatim(
+            const data = await nominatimSearchResults(
               nominatimSearchUrl({
                 format: 'json',
                 q: result.params.query,
                 limit: 1,
               })
             );
-            const data = await res.json();
-            if (data && data.length > 0) {
-              // Custom event for MapComponent to pick up and fly to
-              window.dispatchEvent(new CustomEvent('map:flyto', { 
-                detail: { lon: parseFloat(data[0].lon), lat: parseFloat(data[0].lat), boundingbox: data[0].boundingbox } 
-              }));
+            const hit = data[0];
+            if (hit?.lon != null && hit?.lat != null) {
+              window.dispatchEvent(
+                new CustomEvent('map:flyto', {
+                  detail: {
+                    lon: parseFloat(hit.lon),
+                    lat: parseFloat(hit.lat),
+                    boundingbox: hit.boundingbox,
+                  },
+                })
+              );
             }
           } catch (err) {
             console.error('AI FlyTo error:', err);
