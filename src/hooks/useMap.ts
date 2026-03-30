@@ -15,6 +15,7 @@ import { DrawEvent } from 'ol/interaction/Draw';
 import { SelectEvent } from 'ol/interaction/Select';
 import { ModifyEvent } from 'ol/interaction/Modify';
 import { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
+import { Zoom, Attribution, defaults as defaultControls } from 'ol/control';
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete' | 'MeasureDistance' | 'MeasureArea';
 
@@ -98,6 +99,10 @@ export function useMap({
         vectorLayer,
       ],
       view: new View({ center, zoom }),
+      controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
+        new Zoom(),
+        new Attribution({ collapsible: true })
+      ])
     });
 
     mapInstance.current = map;

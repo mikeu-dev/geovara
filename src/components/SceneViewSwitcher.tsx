@@ -48,7 +48,7 @@ export default function SceneViewSwitcher({ is3d, onToggle3d, projection, onProj
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className='w-[2.25rem] h-[2.25rem] flex flex-col items-center justify-center gap-0.5'>
+                <Button variant="ghost" size="sm" className='w-[2rem] h-[2rem] flex flex-col items-center justify-center gap-0.5'>
                   {is3d ? <Globe className="h-4 w-4" /> : <MapIcon className="h-4 w-4" />}
                   <span className="text-[8px] font-bold opacity-70 leading-none">{getActiveLabel()}</span>
                 </Button>

@@ -53,7 +53,7 @@ export default function StatusBar({ map, projection }: StatusBarProps) {
   }, [map]);
 
   return (
-    <div className="status-bar absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between px-3 py-1.5 text-muted-foreground gap-4">
+    <div className="status-bar absolute bottom-0 left-0 right-0 z-30 flex items-center justify-between px-3 py-1.5 text-muted-foreground gap-4">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-60">
