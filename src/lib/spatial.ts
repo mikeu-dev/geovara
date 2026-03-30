@@ -1,6 +1,8 @@
 import * as turf from '@turf/turf';
 import { Feature, FeatureCollection, Geometry, Polygon, MultiPolygon, Point } from 'geojson';
+import * as tj from 'topojson-client';
 import * as topojson from 'topojson-server';
+import type { Topology } from 'topojson-specification';
 
 /**
  * GisService: A centralized service for geometric computations.
@@ -61,6 +63,40 @@ export const GisService = {
    */
   toTopoJSON(geojson: FeatureCollection): any {
     return topojson.topology({ data: geojson });
+  },
+
+  /**
+   * Converts TopoJSON topology (file contents) into a GeoJSON FeatureCollection for the map/editor.
+   */
+  fromTopoJSON(topology: unknown): FeatureCollection {
+    if (
+      !topology ||
+      typeof topology !== 'object' ||
+      !('objects' in topology) ||
+      (topology as { objects?: unknown }).objects == null
+    ) {
+      throw new Error('Invalid TopoJSON: missing objects');
+    }
+
+    const top = topology as Topology;
+    const { objects } = top;
+    const keys = Object.keys(objects);
+    if (keys.length === 0) {
+      throw new Error('Invalid TopoJSON: empty objects');
+    }
+
+    const features: Feature<Geometry>[] = [];
+    for (const key of keys) {
+      const obj = objects[key];
+      if (obj == null) continue;
+      const gj = tj.feature(top, obj);
+      if (gj.type === 'FeatureCollection') {
+        features.push(...gj.features);
+      } else {
+        features.push(gj as Feature<Geometry>);
+      }
+    }
+    return { type: 'FeatureCollection', features };
   },
 
   /**

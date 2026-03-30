@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Map } from 'ol';
 import { fromLonLat } from 'ol/proj';
 import { Search, MapPin, Loader2, X } from 'lucide-react';
+import { getNominatimFetchInit, nominatimSearchUrl } from '@/lib/nominatim';
 
 interface SearchResult {
   place_id: number;
@@ -47,10 +48,13 @@ export default function LocationSearch({ map }: LocationSearchProps) {
 
     setIsLoading(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=0`,
-        { headers: { 'Accept-Language': 'en' } }
-      );
+      const url = nominatimSearchUrl({
+        format: 'json',
+        q,
+        limit: 5,
+        addressdetails: 0,
+      });
+      const res = await fetch(url, getNominatimFetchInit());
       const data: SearchResult[] = await res.json();
       setResults(data);
       setIsOpen(data.length > 0);

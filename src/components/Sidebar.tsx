@@ -616,6 +616,10 @@ export default function Sidebar({
                         const kmlFeatures = kmlFormat.readFeatures(content, { featureProjection: 'EPSG:3857' });
                         const gjFormat = new GeoJSON({ featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' });
                         geojsonStr = gjFormat.writeFeatures(kmlFeatures as Feature<Geometry>[]);
+                      } else if (isTopo) {
+                        const topology = JSON.parse(content);
+                        const fc = GisService.fromTopoJSON(topology);
+                        geojsonStr = JSON.stringify(fc, null, 2);
                       } else if (canTryWorker) {
                         const parsed = await parseGeoJsonStringInWorker(content);
                         geojsonStr = JSON.stringify(parsed, null, 2);
