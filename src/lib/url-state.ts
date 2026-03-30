@@ -25,26 +25,34 @@ export function decodeGeoJSON(encoded: string): string {
   }
 }
 
-/**
- * Updates the URL hash with the encoded GeoJSON.
- */
-export function updateUrlHash(encoded: string) {
-  if (typeof window !== 'undefined') {
-    const url = new URL(window.location.href);
-    url.hash = encoded ? `data=${encoded}` : '';
-    window.history.replaceState(null, '', url.toString());
-  }
+function hashQuerySegments(): string[] {
+  const raw = window.location.hash.replace(/^#/, '');
+  return raw ? raw.split('&').filter(Boolean) : [];
 }
 
 /**
- * Gets the encoded GeoJSON from the URL hash.
+ * Merges `data=` into the URL hash without dropping other segments (e.g. `map=` from OpenLayers).
+ */
+export function updateUrlHash(encoded: string) {
+  if (typeof window === 'undefined') return;
+
+  const kept = hashQuerySegments().filter((p) => !p.startsWith('data='));
+  if (encoded) {
+    kept.push(`data=${encoded}`);
+  }
+
+  const url = new URL(window.location.href);
+  url.hash = kept.length > 0 ? kept.join('&') : '';
+  window.history.replaceState(null, '', url.toString());
+}
+
+/**
+ * Reads compressed GeoJSON from `data=` when the hash is combined (e.g. `data=…&map=…`).
  */
 export function getEncodedFromHash(): string | null {
-  if (typeof window !== 'undefined') {
-    const hash = window.location.hash;
-    if (hash.startsWith('#data=')) {
-      return hash.substring(6);
-    }
-  }
-  return null;
+  if (typeof window === 'undefined') return null;
+
+  const dataPart = hashQuerySegments().find((p) => p.startsWith('data='));
+  if (!dataPart) return null;
+  return dataPart.slice(5);
 }
