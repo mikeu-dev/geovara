@@ -14,7 +14,7 @@ export default function HelpContent() {
             <h3>Getting Started</h3>
             <p>
                 <strong>Import files:</strong> Drag and drop GeoJSON, KML, or TopoJSON files onto the Features tab, 
-                or click the upload zone to browse. You can also drop GeoJSON or KML directly onto the map viewport. 
+                or click the upload zone to browse. You can also drop GeoJSON, KML, or TopoJSON directly onto the map viewport. 
                 Your data will appear on the map and in the editor.
             </p>
             <p>

@@ -9,6 +9,7 @@ import { Draw, Modify, Select, DragAndDrop } from 'ol/interaction';
 import { createBox } from 'ol/interaction/Draw';
 import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
+import { topoJsonDragFormat } from '@/lib/ol-topojson-drag-format';
 import { fromLonLat, toLonLat, transform, transformExtent } from 'ol/proj';
 import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
@@ -131,6 +132,7 @@ export function useMap({
     // Drag and Drop
     const dragAndDrop = new DragAndDrop({
       formatConstructors: [
+        topoJsonDragFormat,
         new GeoJSON({ featureProjection: 'EPSG:3857' }),
         new KML({ extractStyles: true, showPointNames: true }),
       ],
