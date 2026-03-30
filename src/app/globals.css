@@ -104,16 +104,31 @@
     transform: translateY(-1px);
   }
   .ol-attribution {
-    @apply text-xs text-foreground rounded-t-none rounded-b-none rounded-tl-md;
+    @apply text-[10px] text-foreground/70 rounded-md;
     background: hsl(var(--glass-bg));
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    bottom: 1.75rem;
-    right: 0;
+    bottom: 0.5rem !important;
+    right: 0.5rem !important;
+    border: 1px solid hsl(var(--glass-border));
+    padding: 2px 6px;
   }
   .ol-scale-line {
-    bottom: 3rem;
-    left: 3.5rem;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--glass-border));
+    border-radius: 4px;
+    bottom: 1rem !important;
+    left: 1rem !important;
+    padding: 2px;
+    z-index: 40 !important;
+  }
+  .ol-scale-line-inner {
+    border: 1px solid hsl(var(--foreground));
+    border-top: none;
+    color: hsl(var(--foreground));
+    font-size: 9px;
   }
 
   /* ─── Drawing Tools Panel (Glassmorphism) ─── */
@@ -265,12 +280,21 @@
     animation: slideInLeft 0.35s ease-out forwards;
   }
 
-  /* ─── Status Bar ─── */
+  /* ─── Status Bar (Floating Pill) ─── */
   .status-bar {
+    width: auto;
+    min-width: 320px;
+    max-width: fit-content;
+    left: 50% !important;
+    transform: translateX(-50%);
+    bottom: 0.75rem !important;
+    padding: 0.4rem 1.25rem !important;
+    border-radius: 9999px !important;
     background: hsl(var(--glass-bg));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     font-size: 11px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
@@ -290,5 +314,11 @@
     border: 1px solid hsl(var(--border));
     border-radius: 4px;
     margin: 0 2px;
+  }
+
+  .glass-pill {
+    background: hsla(var(--primary) / 0.1);
+    backdrop-filter: blur(12px) saturate(180%);
+    @apply border border-white/10;
   }
 }

@@ -83,10 +83,18 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-12 right-6 z-30 p-3 rounded-2xl glass shadow-2xl hover:scale-105 hover:shadow-accent/20 transition-all border border-white/10 bg-accent/10 group active:scale-95"
+        className="fixed bottom-20 right-6 z-30 flex items-center gap-2.5 px-4 py-2.5 rounded-full glass-pill shadow-2xl hover:scale-105 hover:shadow-accent/40 transition-all border border-white/10 bg-accent/15 group active:scale-95"
         title="Ask Geovara Intelligence (Ctrl+K)"
       >
-        <Sparkles className="h-6 w-6 text-accent animate-pulse group-hover:scale-110 transition-transform" />
+        <div className="relative">
+          <div className="absolute inset-0 bg-accent/40 blur-md rounded-full animate-pulse group-hover:bg-accent/60" />
+          <Sparkles className="h-5 w-5 text-accent relative z-10 animate-pulse group-hover:scale-110 transition-transform" />
+        </div>
+        <span className="text-xs font-bold tracking-wide text-foreground/90 group-hover:text-foreground">Ask Geovara</span>
+        <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md bg-white/10 border border-white/10">
+          <Command className="h-2.5 w-2.5 text-muted-foreground" />
+          <span className="text-[9px] font-mono font-bold text-muted-foreground italic">K</span>
+        </div>
       </button>
     );
   }
