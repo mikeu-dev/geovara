@@ -9,7 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
 import { Loader2 } from 'lucide-react';
 import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
-import { getNominatimFetchInit, nominatimSearchUrl } from '@/lib/nominatim';
+import { fetchNominatim, nominatimSearchUrl } from '@/lib/nominatim';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { GisService } from '@/lib/spatial';
 import AIAssistant from '@/components/AIAssistant';
@@ -223,13 +223,12 @@ export default function Home() {
       case 'flyTo':
         if (result.params?.query) {
           try {
-            const res = await fetch(
+            const res = await fetchNominatim(
               nominatimSearchUrl({
                 format: 'json',
                 q: result.params.query,
                 limit: 1,
-              }),
-              getNominatimFetchInit()
+              })
             );
             const data = await res.json();
             if (data && data.length > 0) {

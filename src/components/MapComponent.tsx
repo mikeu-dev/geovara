@@ -118,7 +118,18 @@ export default function MapComponent(props: MapProps) {
     map.addOverlay(popupOverlay);
 
     const handleKeydown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.closest('.monaco-editor'))
+      ) {
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFeature) {
+        e.preventDefault();
         onDeleteFeature(selectedFeature.getId());
         setIsPopupOpen(false);
       }
