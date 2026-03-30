@@ -6,7 +6,7 @@ self.onmessage = (event: MessageEvent<string>) => {
   const geojsonString = event.data;
   
   if (!geojsonString) {
-    self.postMessage({ error: 'Empty GeoJSON string' });
+    self.postMessage({ success: false, error: 'Empty GeoJSON string' });
     return;
   }
 
@@ -21,7 +21,8 @@ self.onmessage = (event: MessageEvent<string>) => {
 
     // 3. Return serialized object back to main thread
     self.postMessage({ success: true, data: parsed });
-  } catch (error: any) {
-    self.postMessage({ success: false, error: error.message || 'Unknown parsing error' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown parsing error';
+    self.postMessage({ success: false, error: message });
   }
 };

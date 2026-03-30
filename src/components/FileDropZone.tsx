@@ -4,7 +4,7 @@ import { useState, useCallback, DragEvent } from 'react';
 import { Upload, FileUp, X } from 'lucide-react';
 
 interface FileDropZoneProps {
-  onFileLoad: (content: string, filename: string) => void;
+  onFileLoad: (content: string, filename: string) => void | Promise<void>;
 }
 
 export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
@@ -42,7 +42,7 @@ export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        onFileLoad(content, file.name);
+        void Promise.resolve(onFileLoad(content, file.name));
       }
     };
     reader.readAsText(file);
@@ -56,7 +56,7 @@ export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        onFileLoad(content, file.name);
+        void Promise.resolve(onFileLoad(content, file.name));
       }
     };
     reader.readAsText(file);

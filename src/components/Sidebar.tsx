@@ -39,6 +39,10 @@ import HelpContent from './HelpContent';
 import FileDropZone from './FileDropZone';
 import { getArea, getLength } from 'ol/sphere';
 import { LineString, Polygon, MultiPolygon } from 'ol/geom';
+import {
+  parseGeoJsonStringInWorker,
+  shouldParseGeoJsonInWorker,
+} from '@/lib/geojson-worker-parse';
 
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -59,6 +63,8 @@ interface SidebarProps {
   onDeleteFeature: (id: string | number | undefined) => void;
   onZoomToFeature: (id: string | number) => void;
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
+  /** Shown during heavy file import / parse so the main thread can paint the overlay first */
+  onHeavyParseChange?: (busy: boolean) => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -82,7 +88,8 @@ export default function Sidebar({
   features,
   onDeleteFeature,
   onZoomToFeature,
-  onFeatureSelect
+  onFeatureSelect,
+  onHeavyParseChange,
 }: SidebarProps) {
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
@@ -591,18 +598,34 @@ export default function Sidebar({
               </TabsContent>
               <TabsContent value="features" className="flex-grow mt-2 overflow-y-auto">
                 <div className="space-y-2">
-                  <FileDropZone onFileLoad={(content, filename) => {
+                  <FileDropZone onFileLoad={async (content, filename) => {
+                    const lower = filename.toLowerCase();
+                    const isTopo = lower.endsWith('.topojson');
+                    const isKml = lower.endsWith('.kml');
+                    const canTryWorker =
+                      !isKml &&
+                      !isTopo &&
+                      shouldParseGeoJsonInWorker(content.length);
+
+                    onHeavyParseChange?.(true);
+                    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
                     try {
                       let geojsonStr = content;
-                      if (filename.endsWith('.kml')) {
+                      if (isKml) {
                         const kmlFeatures = kmlFormat.readFeatures(content, { featureProjection: 'EPSG:3857' });
                         const gjFormat = new GeoJSON({ featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' });
-                        geojsonStr = gjFormat.writeFeatures(kmlFeatures as any);
+                        geojsonStr = gjFormat.writeFeatures(kmlFeatures as Feature<Geometry>[]);
+                      } else if (canTryWorker) {
+                        const parsed = await parseGeoJsonStringInWorker(content);
+                        geojsonStr = JSON.stringify(parsed, null, 2);
                       }
                       onGeojsonChange(geojsonStr);
                       toast({ title: `Imported ${filename}` });
-                    } catch (err) {
+                    } catch {
                       toast({ title: 'Import failed', description: 'Could not parse the file.', variant: 'destructive' });
+                    } finally {
+                      onHeavyParseChange?.(false);
                     }
                   }} />
                   {features.length === 0 ? (

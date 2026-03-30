@@ -9,8 +9,6 @@ import Sidebar from '@/components/Sidebar';
 import MapSkeleton from '@/components/MapSkeleton';
 import { Loader2 } from 'lucide-react';
 import { encodeGeoJSON, decodeGeoJSON, updateUrlHash, getEncodedFromHash } from '@/lib/url-state';
-import { validateGeoJSON } from '@/lib/schema';
-import { useToast } from '@/hooks/use-toast';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { GisService } from '@/lib/spatial';
 import AIAssistant from '@/components/AIAssistant';
@@ -46,8 +44,7 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [zoomToId, setZoomToId] = useState<string | number | null>(null);
-  const { toast } = useToast();
-  
+
   // Undo/Redo History for the GeoJSON string
   const { 
     state: geojsonString, 
@@ -371,6 +368,7 @@ export default function Home() {
         onDeleteFeature={handleDeleteFeature}
         onZoomToFeature={handleZoomTo}
         onFeatureSelect={handleFeatureSelect}
+        onHeavyParseChange={setIsParsing}
       />
       <div className="flex-grow h-full w-full relative">
         {isClient ? (
