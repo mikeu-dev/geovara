@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
 import VectorSource from 'ol/source/Vector';
 import VectorImageLayer from 'ol/layer/VectorImage';
 import { Draw, Modify, Select, DragAndDrop } from 'ol/interaction';
@@ -164,10 +165,47 @@ export function useMap({
         view.animate({ center: fromLonLat([lon, lat]), zoom: 16, duration: 1000 });
       }
     };
+
+    // Global Basemap Listener
+    const handleBasemap = (e: any) => {
+      const { basemap } = e.detail;
+      let source;
+      switch (basemap.toLowerCase()) {
+        case 'satellite':
+        case 'imagery':
+          source = new XYZ({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            maxZoom: 19
+          });
+          break;
+        case 'topo':
+        case 'topographic':
+          source = new XYZ({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+            maxZoom: 19
+          });
+          break;
+        case 'dark':
+        case 'night':
+          source = new XYZ({
+            url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            attributions: '© <a href="https://carto.com/attributions">CARTO</a>'
+          });
+          break;
+        case 'osm':
+        default:
+          source = new OSM();
+          break;
+      }
+      tileLayer.current.setSource(source);
+    };
+
     window.addEventListener('map:flyto', handleFlyTo);
+    window.addEventListener('map:setbasemap', handleBasemap);
 
     return () => {
       window.removeEventListener('map:flyto', handleFlyTo);
+      window.removeEventListener('map:setbasemap', handleBasemap);
       window.removeEventListener('hashchange', updateViewFromHash);
       if (mapInstance.current) {
         mapInstance.current.dispose();

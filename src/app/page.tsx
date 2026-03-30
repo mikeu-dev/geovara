@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -58,8 +58,10 @@ export default function Home() {
     canRedo,
     reset: resetHistory
   } = useUndoHistory(defaultGeoJsonString);
-
-  // --- Handlers (Moved up to fix hoisting) ---
+  
+  // Refs to prevent infinite sync loops
+  const isUpdatingFromMap = useRef(false);
+  const isUpdatingFromEditor = useRef(false);
 
   const handleZoomTo = useCallback((id: string | number) => {
     setZoomToId(id);
@@ -101,6 +103,7 @@ export default function Home() {
   }, []);
 
   const handleGeojsonChange = useCallback((value: string | undefined) => {
+    isUpdatingFromEditor.current = true;
     const newGeojsonString = value || '';
     setGeojsonString(newGeojsonString);
     if (!newGeojsonString.trim() || newGeojsonString.trim() === defaultGeoJsonString) {
@@ -185,9 +188,16 @@ export default function Home() {
     }
   }, [resetHistory, setGeojsonString]);
 
+  // Sync features -> geojsonString (Source: Map/Drawing)
   useEffect(() => {
+    if (isUpdatingFromEditor.current) {
+        isUpdatingFromEditor.current = false;
+        return;
+    }
+
     if (!features.length) {
       if (geojsonString !== defaultGeoJsonString) {
+        isUpdatingFromMap.current = true;
         setGeojsonString(defaultGeoJsonString);
       }
       return;
@@ -205,6 +215,7 @@ export default function Home() {
       const newGeojsonString = JSON.stringify(geojson, null, 2);
       
       if (newGeojsonString !== geojsonString) {
+         isUpdatingFromMap.current = true;
          setGeojsonString(newGeojsonString);
       }
       
@@ -218,7 +229,33 @@ export default function Home() {
     } catch (error) {
       console.error('Error converting features to GeoJSON:', error);
     }
-  }, [features, geojsonString, setGeojsonString]);
+  }, [features, geojsonString, setGeojsonString, format]);
+
+  // Sync geojsonString -> features (Source: History/Undo/Redo)
+  useEffect(() => {
+    if (isUpdatingFromMap.current) {
+        isUpdatingFromMap.current = false;
+        return;
+    }
+
+    if (!geojsonString || (geojsonString === defaultGeoJsonString && features.length === 0)) return;
+
+    try {
+      const geojson_obj = JSON.parse(geojsonString);
+      const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
+      
+      // Compare if features are actually different to avoid loop
+      const currentFeaturesGeojson = format.writeFeaturesObject(features);
+      if (JSON.stringify(currentFeaturesGeojson) !== JSON.stringify(geojson_obj)) {
+        featuresFromGeojson.forEach((f, i) => {
+          if (!f.getId()) f.setId(`feature_sync_${Date.now()}_${i}`);
+        });
+        setFeatures(featuresFromGeojson);
+      }
+    } catch (e) {
+      // Invalid JSON during typing, ignore
+    }
+  }, [geojsonString, format]);
   
   const handleAIAction = useCallback(async (result: SpatialIntentOutput) => {
     switch (result.action) {
@@ -272,6 +309,35 @@ export default function Home() {
           } catch (e) {
             console.error('Centroid calculation failed');
           }
+        }
+        break;
+      case 'simplify':
+        if (features.length > 0) {
+          const simplifiedFeatures = features.map(f => {
+            try {
+              const geojsonFeature = format.writeFeatureObject(f) as any;
+              const simplified = GisService.simplifyGeometry(geojsonFeature, 0.01);
+              const olFeature = format.readFeature(simplified) as Feature<Geometry>;
+              olFeature.setId(f.getId()); // Keep ID to update in place or could create new
+              return olFeature;
+            } catch (e) {
+              return f;
+            }
+          });
+          setFeatures(simplifiedFeatures);
+        }
+        break;
+      case 'setBasemap':
+        if (result.params?.basemap) {
+          window.dispatchEvent(new CustomEvent('map:setbasemap', { 
+            detail: { basemap: result.params.basemap } 
+          }));
+        }
+        break;
+      case 'setProjection':
+        if (result.params?.projection) {
+          const proj = result.params.projection.includes('4326') ? 'EPSG:4326' : 'EPSG:3857';
+          setProjection(proj as any);
         }
         break;
       case 'clear':

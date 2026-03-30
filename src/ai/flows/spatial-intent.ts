@@ -51,13 +51,25 @@ Your job is to translate user natural language commands into structured JSON act
 **User Prompt:**
 {{{input.prompt}}}
 
-**Rules:**
-1. Determine the 'action' and extract relevant 'params'.
-2. If the user mentions a location without a specific geometry action (e.g., "Take me to Paris"), use 'flyTo'.
-3. If they ask for geometric analysis (e.g., "Buffer this polygon by 1km"), use 'buffer'.
-4. Default to 'kilometers' for buffer distances if not specified.
-5. Provide a short, polite 'narrative' (max 10 words) describing the action.
-6. If the command is unclear, return 'unknown' as the action.
+**Rules for 'action' selection:**
+1. 'flyTo': If the user mentions a location to navigate to (e.g., "Take me to Paris", "Go to Jakarta").
+2. 'buffer': If the user asks for a buffer creation (e.g., "Buffer this by 1km").
+3. 'centroid': If the user asks for the center point (e.g., "Calculate center", "Find middle").
+4. 'simplify': If the user asks to simplify lines/polygons (e.g., "Make this less complex", "Simplify geometries").
+5. 'setBasemap': If the user asks to change the background map (e.g., "Switch to satellite", "Show dark mode", "Use topographic"). 
+6. 'setProjection': If the user asks to change the coordinate system (e.g., "Use EPSG:4326").
+7. 'clear': If the user asks to remove everything.
+
+**Rules for 'params':**
+- For 'buffer', default radius is 1 and units is 'kilometers'.
+- For 'flyTo', extract the location name into 'query'.
+- For 'setBasemap', valid values are 'osm', 'satellite', 'topo', 'dark'.
+- For 'setProjection', valid values are 'EPSG:4326', 'EPSG:3857'.
+
+**Output Requirements:**
+- Return ONLY the JSON object.
+- Provide a short, polite 'narrative' (max 10 words).
+- If internal logic is unclear, use 'unknown'.
 
 Respond strictly in JSON.`,
 });
