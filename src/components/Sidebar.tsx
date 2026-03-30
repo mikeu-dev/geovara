@@ -638,6 +638,7 @@ export default function Sidebar({
                               </div>
                             </div>
                             <div className="flex items-center gap-0.5">
+                              <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onZoomToFeature(feature.getId()!); }}>
@@ -654,6 +655,7 @@ export default function Sidebar({
                                 </TooltipTrigger>
                                 <TooltipContent><p>Delete</p></TooltipContent>
                               </Tooltip>
+                              </TooltipProvider>
                             </div>
                           </div>
                         </Card>

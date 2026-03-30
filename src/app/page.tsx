@@ -58,14 +58,39 @@ export default function Home() {
     canRedo,
     reset: resetHistory
   } = useUndoHistory(defaultGeoJsonString);
-  
-  // Refs to prevent infinite sync loops
-  const isUpdatingFromMap = useRef(false);
-  const isUpdatingFromEditor = useRef(false);
+
+  // Ref to skip features→geojson sync when change came from editor/undo
+  const skipFeaturesSync = useRef(false);
+
+  // Wrap undo/redo to also update features from the restored geojsonString
+  const syncFeaturesFromString = useCallback((str: string) => {
+    try {
+      if (!str || str === defaultGeoJsonString) {
+        setFeatures([]);
+        return;
+      }
+      const obj = JSON.parse(str);
+      const parsed = format.readFeatures(obj) as Feature<Geometry>[];
+      parsed.forEach((f, i) => { if (!f.getId()) f.setId(`f_sync_${Date.now()}_${i}`); });
+      skipFeaturesSync.current = true;
+      setFeatures(parsed);
+    } catch { /* ignore */ }
+  }, [format]);
+
+  const handleUndo = useCallback(() => {
+    const prev = undo();
+    if (prev !== undefined) syncFeaturesFromString(prev as string);
+  }, [undo, syncFeaturesFromString]);
+
+  const handleRedo = useCallback(() => {
+    const next = redo();
+    if (next !== undefined) syncFeaturesFromString(next as string);
+  }, [redo, syncFeaturesFromString]);
+
+  // --- Handlers ---
 
   const handleZoomTo = useCallback((id: string | number) => {
     setZoomToId(id);
-    // Reset after a short delay so it can be triggered again for the same ID
     setTimeout(() => setZoomToId(null), 100);
   }, []);
 
@@ -103,77 +128,38 @@ export default function Home() {
   }, []);
 
   const handleGeojsonChange = useCallback((value: string | undefined) => {
-    isUpdatingFromEditor.current = true;
     const newGeojsonString = value || '';
     setGeojsonString(newGeojsonString);
+    
     if (!newGeojsonString.trim() || newGeojsonString.trim() === defaultGeoJsonString) {
+      skipFeaturesSync.current = true;
       setFeatures([]);
       return;
     }
 
-    // Use Web Worker for parsing large datasets
-    if (newGeojsonString.length > 5000) {
-      setIsParsing(true);
-      const worker = new Worker(new URL('../workers/geojson.worker.ts', import.meta.url));
-      worker.postMessage(newGeojsonString);
-      worker.onmessage = (e) => {
-        setIsParsing(false);
-        if (e.data.success) {
-          // Validate using Zod
-          const validation = validateGeoJSON(e.data.data);
-          if (!validation.success) {
-            toast({
-              variant: 'destructive',
-              title: 'Invalid GeoJSON',
-              description: 'The data structure does not match the GeoJSON specification.'
-            });
-            return;
-          }
-
-          try {
-            const featuresFromGeojson = format.readFeatures(validation.data) as Feature<Geometry>[];
-            featuresFromGeojson.forEach((f, i) => {
-              if (!f.getId()) f.setId(`feature_worker_${Date.now()}_${i}`);
-            });
-            setFeatures(featuresFromGeojson);
-          } catch (err) {
-            console.error('Error reading features from worker data');
-          }
-        }
-        worker.terminate();
-      };
-      worker.onerror = () => {
-        setIsParsing(false);
-        worker.terminate();
-      };
-    } else {
-      // Small datasets, parse synchronously for speed
-      try {
-        const geojson_obj = JSON.parse(newGeojsonString);
-        const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
-
-        featuresFromGeojson.forEach((f, i) => {
-          if (!f.getId()) f.setId(`feature_${Date.now()}_${i}`);
-        });
-        
-        setFeatures(featuresFromGeojson);
-      } catch (e) {
-        // Invalid GeoJSON, do nothing
-      }
+    try {
+      const geojson_obj = JSON.parse(newGeojsonString);
+      const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
+      featuresFromGeojson.forEach((f, i) => {
+        if (!f.getId()) f.setId(`feature_editor_${Date.now()}_${i}`);
+      });
+      skipFeaturesSync.current = true;
+      setFeatures(featuresFromGeojson);
+    } catch (e) {
+      // Invalid GeoJSON, do nothing
     }
-  }, [setGeojsonString, toast]);
+  }, [setGeojsonString, format]);
 
   // --- Effects ---
 
   useEffect(() => {
     setIsClient(true);
-    // Initial load from URL
     const encoded = getEncodedFromHash();
     if (encoded) {
       const decoded = decodeGeoJSON(encoded);
       if (decoded && decoded !== defaultGeoJsonString) {
         setGeojsonString(decoded);
-        resetHistory(decoded); // Reset history with the decoded value
+        resetHistory(decoded);
         try {
           const geojson_obj = JSON.parse(decoded);
           const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
@@ -188,20 +174,23 @@ export default function Home() {
     }
   }, [resetHistory, setGeojsonString]);
 
-  // Sync features -> geojsonString (Source: Map/Drawing)
+  // One-way sync: features → geojsonString (when map draws/edits features)
+  const lastSyncedGeojson = useRef(defaultGeoJsonString);
+  
   useEffect(() => {
-    if (isUpdatingFromEditor.current) {
-        isUpdatingFromEditor.current = false;
-        return;
+    if (skipFeaturesSync.current) {
+      skipFeaturesSync.current = false;
+      return;
     }
 
     if (!features.length) {
-      if (geojsonString !== defaultGeoJsonString) {
-        isUpdatingFromMap.current = true;
+      if (lastSyncedGeojson.current !== defaultGeoJsonString) {
+        lastSyncedGeojson.current = defaultGeoJsonString;
         setGeojsonString(defaultGeoJsonString);
+        updateUrlHash('');
       }
       return;
-    };
+    }
     try {
       const featuresToWrite = features.map(feature => {
         const newFeature = feature.clone();
@@ -214,12 +203,11 @@ export default function Home() {
       const geojson = format.writeFeaturesObject(featuresToWrite);
       const newGeojsonString = JSON.stringify(geojson, null, 2);
       
-      if (newGeojsonString !== geojsonString) {
-         isUpdatingFromMap.current = true;
-         setGeojsonString(newGeojsonString);
+      if (newGeojsonString !== lastSyncedGeojson.current) {
+        lastSyncedGeojson.current = newGeojsonString;
+        setGeojsonString(newGeojsonString);
       }
       
-      // Update URL hash
       if (newGeojsonString !== defaultGeoJsonString) {
         const encoded = encodeGeoJSON(newGeojsonString);
         updateUrlHash(encoded);
@@ -229,33 +217,8 @@ export default function Home() {
     } catch (error) {
       console.error('Error converting features to GeoJSON:', error);
     }
-  }, [features, geojsonString, setGeojsonString, format]);
+  }, [features]);
 
-  // Sync geojsonString -> features (Source: History/Undo/Redo)
-  useEffect(() => {
-    if (isUpdatingFromMap.current) {
-        isUpdatingFromMap.current = false;
-        return;
-    }
-
-    if (!geojsonString || (geojsonString === defaultGeoJsonString && features.length === 0)) return;
-
-    try {
-      const geojson_obj = JSON.parse(geojsonString);
-      const featuresFromGeojson = format.readFeatures(geojson_obj) as Feature<Geometry>[];
-      
-      // Compare if features are actually different to avoid loop
-      const currentFeaturesGeojson = format.writeFeaturesObject(features);
-      if (JSON.stringify(currentFeaturesGeojson) !== JSON.stringify(geojson_obj)) {
-        featuresFromGeojson.forEach((f, i) => {
-          if (!f.getId()) f.setId(`feature_sync_${Date.now()}_${i}`);
-        });
-        setFeatures(featuresFromGeojson);
-      }
-    } catch (e) {
-      // Invalid JSON during typing, ignore
-    }
-  }, [geojsonString, format]);
   
   const handleAIAction = useCallback(async (result: SpatialIntentOutput) => {
     switch (result.action) {
@@ -367,8 +330,8 @@ export default function Home() {
 
       // Ctrl/Cmd shortcuts
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z' && !e.shiftKey && canUndo) { e.preventDefault(); undo(); }
-        if ((e.key === 'y' || (e.key === 'z' && e.shiftKey)) && canRedo) { e.preventDefault(); redo(); }
+        if (e.key === 'z' && !e.shiftKey && canUndo) { e.preventDefault(); handleUndo(); }
+        if ((e.key === 'y' || (e.key === 'z' && e.shiftKey)) && canRedo) { e.preventDefault(); handleRedo(); }
         return;
       }
 
@@ -391,7 +354,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canUndo, canRedo, undo, redo]);
+  }, [canUndo, canRedo, handleUndo, handleRedo]);
 
   return (
     <main className="flex h-full flex-col md:flex-row bg-background text-foreground">
@@ -401,8 +364,8 @@ export default function Home() {
         featuresCount={features.length}
         features={features}
         onClear={handleClear}
-        undo={undo}
-        redo={redo}
+        undo={handleUndo}
+        redo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
         onDeleteFeature={handleDeleteFeature}

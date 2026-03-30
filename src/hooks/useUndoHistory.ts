@@ -2,60 +2,69 @@ import { useState, useCallback, useRef } from 'react';
 
 /**
  * useUndoHistory Hook: Manages a history of states for Undo/Redo operations.
- * This demonstrates advanced state machine management.
+ * Uses refs internally to keep callback identity stable and prevent infinite re-renders.
  */
 export function useUndoHistory<T>(initialState: T, limit: number = 50) {
   const [current, setCurrent] = useState<T>(initialState);
   const [past, setPast] = useState<T[]>([]);
   const [future, setFuture] = useState<T[]>([]);
   
-  // Ref to track if the change was triggered by undo/redo to avoid loop
-  const isInternalChange = useRef(false);
+  // Use refs to keep stable callback identities
+  const currentRef = useRef<T>(initialState);
+  currentRef.current = current;
+  
+  const pastRef = useRef<T[]>([]);
+  pastRef.current = past;
+  
+  const futureRef = useRef<T[]>([]);
+  futureRef.current = future;
 
   const set = useCallback((newState: T) => {
-    if (isInternalChange.current) {
-      isInternalChange.current = false;
-      return;
-    }
+    if (newState === currentRef.current) return;
 
-    if (newState === current) return;
-
-    setPast(prev => {
-      const next = [...prev, current];
+    const prev = currentRef.current;
+    setPast(p => {
+      const next = [...p, prev];
       if (next.length > limit) return next.slice(1);
       return next;
     });
     setCurrent(newState);
-    setFuture([]); // Clear redo history on new action
-  }, [current, limit]);
+    setFuture([]);
+  }, [limit]);
 
   const undo = useCallback(() => {
-    if (past.length === 0) return;
+    const p = pastRef.current;
+    if (p.length === 0) return undefined;
 
-    const previous = past[past.length - 1];
-    const newPast = past.slice(0, past.length - 1);
+    const previous = p[p.length - 1];
+    const newPast = p.slice(0, p.length - 1);
 
-    isInternalChange.current = true;
-    setFuture(prev => [current, ...prev]);
+    setFuture(f => [currentRef.current, ...f]);
     setPast(newPast);
     setCurrent(previous);
     
     return previous;
-  }, [past, current]);
+  }, []);
 
   const redo = useCallback(() => {
-    if (future.length === 0) return;
+    const f = futureRef.current;
+    if (f.length === 0) return undefined;
 
-    const next = future[0];
-    const newFuture = future.slice(1);
+    const next = f[0];
+    const newFuture = f.slice(1);
 
-    isInternalChange.current = true;
-    setPast(prev => [...prev, current]);
+    setPast(p => [...p, currentRef.current]);
     setFuture(newFuture);
     setCurrent(next);
 
     return next;
-  }, [future, current]);
+  }, []);
+
+  const reset = useCallback((newState: T) => {
+    setCurrent(newState);
+    setPast([]);
+    setFuture([]);
+  }, []);
 
   return {
     state: current,
@@ -64,11 +73,6 @@ export function useUndoHistory<T>(initialState: T, limit: number = 50) {
     redo,
     canUndo: past.length > 0,
     canRedo: future.length > 0,
-    // For external state synchronization
-    reset: (newState: T) => {
-        setCurrent(newState);
-        setPast([]);
-        setFuture([]);
-    }
+    reset,
   };
 }
