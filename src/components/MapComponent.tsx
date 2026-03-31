@@ -128,11 +128,15 @@ export default function MapComponent({
       const geometry = selectedFeature.getGeometry();
       if (geometry) {
         let coordinate: number[] | undefined;
-        const geom = geometry as unknown as { 
+        
+        // Use a more specific interface for cross-geometry coordinate extraction
+        interface GeometryWithCenter {
           getInteriorPoint?: () => { getCoordinates: () => number[] };
           getCenter?: () => number[];
-          getCoordinates?: () => number[] | number[][];
-        };
+          getCoordinates?: () => number[] | number[][] | number[][][];
+        }
+        
+        const geom = geometry as unknown as GeometryWithCenter;
         
         if (typeof geom.getInteriorPoint === 'function') {
           const interiorPoint = geom.getInteriorPoint();

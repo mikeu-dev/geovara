@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Sparkles, Loader2, Command, X, ArrowRight } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Sparkles, Loader2, Command, X } from 'lucide-react';
 import { processSpatialIntent, SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 import { useToast } from '@/hooks/use-toast';
 
@@ -67,7 +67,7 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
           setLastNarrative('');
         }, 3000);
       }
-    } catch (err) {
+    } catch {
       setLastNarrative('Something went wrong. Please try again.');
       toast({
         title: "AI Error",

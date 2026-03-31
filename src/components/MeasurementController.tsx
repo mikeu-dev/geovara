@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Map, Overlay } from 'ol';
+import { Map, MapBrowserEvent, Overlay } from 'ol';
 import { Draw } from 'ol/interaction';
+import { DrawEvent } from 'ol/interaction/Draw';
 import VectorSource from 'ol/source/Vector';
 import VectorLayer from 'ol/layer/Vector';
 import { LineString, Polygon } from 'ol/geom';
 import { getArea, getLength } from 'ol/sphere';
 import { unByKey } from 'ol/Observable';
+import { EventsKey } from 'ol/events';
 import { Style, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 
 interface MeasurementControllerProps {
@@ -71,15 +73,16 @@ export default function MeasurementController({ map, activeType }: MeasurementCo
     createMeasureTooltip();
     createHelpTooltip();
 
-    let listener: any;
-    draw.on('drawstart', (evt: any) => {
+    let listener: EventsKey;
+    draw.on('drawstart', (evt: DrawEvent) => {
       const sketch = evt.feature;
       const geometry = sketch.getGeometry();
+      // @ts-expect-error: DrawEvent from ol may not expose coordinate in TS types
       let tooltipCoord = evt.coordinate;
 
       if (geometry) {
-        listener = geometry.on('change', (evt: any) => {
-          const geom = evt.target;
+        listener = geometry.on('change', (e) => {
+          const geom = e.target;
           let output;
           if (geom instanceof Polygon) {
             output = formatArea(geom);
@@ -107,7 +110,7 @@ export default function MeasurementController({ map, activeType }: MeasurementCo
       unByKey(listener);
     });
 
-    const pointerMoveHandler = (evt: any) => {
+    const pointerMoveHandler = (evt: MapBrowserEvent<PointerEvent>) => {
       if (evt.dragging) return;
       let helpMsg = 'Click to start measuring';
       if (drawRef.current) {

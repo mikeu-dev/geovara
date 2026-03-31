@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 
 /**
  * useUndoHistory Hook: Manages a history of states for Undo/Redo operations.
@@ -11,13 +11,15 @@ export function useUndoHistory<T>(initialState: T, limit: number = 50) {
   
   // Use refs to keep stable callback identities
   const currentRef = useRef<T>(initialState);
-  currentRef.current = current;
-  
   const pastRef = useRef<T[]>([]);
-  pastRef.current = past;
-  
   const futureRef = useRef<T[]>([]);
-  futureRef.current = future;
+
+  // Update refs in layout effect to avoid "updating ref during render" lint error.
+  useLayoutEffect(() => {
+    currentRef.current = current;
+    pastRef.current = past;
+    futureRef.current = future;
+  }, [current, past, future]);
 
   const set = useCallback((newState: T) => {
     if (newState === currentRef.current) return;

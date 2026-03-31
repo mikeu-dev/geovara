@@ -14,14 +14,13 @@ import type { Geometry } from 'ol/geom';
 import { Feature as GeoJSONFeature } from 'geojson';
 import GeoJSON from 'ol/format/GeoJSON';
 import { GisService } from '@/lib/spatial';
-import { cn } from '@/lib/utils';
 
 const geojsonFormat = new GeoJSON();
 
 interface FeaturePropertiesPopupProps {
   feature: Feature<Geometry>;
   onDelete: (featureId: string | number | undefined) => void;
-  onPropertyChange: (featureId: string | number, key: string, value: any) => void;
+  onPropertyChange: (featureId: string | number, key: string, value: string | number | boolean | null | undefined | object) => void;
   children: React.ReactNode;
   onOpenChange: (open: boolean) => void;
 }
@@ -30,7 +29,7 @@ const getSanitizedProperties = (feature: Feature<Geometry>) => {
   const props = feature.getProperties();
   // Exclude non-serializable or internal properties from the editor
   delete props.geometry;
-  return Object.entries(props).filter(([_, value]) =>
+  return Object.entries(props).filter(([, value]) =>
     typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || (typeof value === 'object' && value !== null && !Array.isArray(value))
   );
 };
@@ -108,7 +107,7 @@ export default function FeaturePropertiesPopup({
     setProperties(prev => prev.map(([key, value]) => key === oldKey ? [newKey, value] : [key, value]));
   };
 
-  const handlePropertyValueChange = (key: string, value: any) => {
+  const handlePropertyValueChange = (key: string, value: string | number | boolean | null | undefined | object) => {
     onPropertyChange(feature.getId()!, key, value);
     // Update local state
     setProperties(prev => prev.map(([propKey, propValue]) => propKey === key ? [propKey, value] : [propKey, propValue]));
@@ -201,7 +200,7 @@ export default function FeaturePropertiesPopup({
         };
       }
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   })();

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Globe, Map as MapIcon, Layers } from 'lucide-react';
+import { Check, Globe, Map as MapIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,8 +31,8 @@ export default function SceneViewSwitcher({ is3d, onToggle3d, projection, onProj
       if (!is3d) onToggle3d();
     } else {
       if (is3d) onToggle3d(); // Turn off 3D
-      const fullProj = mode === '3857' ? 'EPSG:3857' : 'EPSG:4326';
-      onProjectionChange(fullProj as any);
+      const fullProj: 'EPSG:3857' | 'EPSG:4326' = mode === '3857' ? 'EPSG:3857' : 'EPSG:4326';
+      onProjectionChange(fullProj);
     }
   };
 

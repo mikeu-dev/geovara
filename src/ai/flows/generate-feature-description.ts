@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import {GeoJsonObject} from 'geojson';
 
 const GenerateFeatureDescriptionInputSchema = z.object({
   feature: z

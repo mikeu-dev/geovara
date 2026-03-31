@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import type { Map } from 'ol';
 import type TileLayer from 'ol/layer/Tile';
 import type { OSM, XYZ } from 'ol/source';
 import { Layers, Check } from 'lucide-react';
@@ -25,18 +24,17 @@ const basemaps = [
 ];
 
 interface BasemapSwitcherProps {
-  map: Map | null;
   tileLayer: TileLayer<OSM | XYZ> | null;
 }
 
-export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps) {
+export default function BasemapSwitcher({ tileLayer }: BasemapSwitcherProps) {
   const [activeBasemap, setActiveBasemap] = useState('osm');
   const [opacity, setOpacity] = useState(1);
 
   const handleBasemapChange = (basemapId: string) => {
     const selectedBasemap = basemaps.find(b => b.id === basemapId);
     if (selectedBasemap && tileLayer) {
-      tileLayer.setSource(selectedBasemap.source as any);
+      tileLayer.setSource(selectedBasemap.source as (OSM_Source | XYZ_Source));
       setActiveBasemap(basemapId);
     }
   };
@@ -84,7 +82,7 @@ export default function BasemapSwitcher({ map, tileLayer }: BasemapSwitcherProps
               value={opacity}
               onChange={(e) => handleOpacityChange(parseFloat(e.target.value))}
               className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-accent"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
             />
           </div>
         </DropdownMenuContent>

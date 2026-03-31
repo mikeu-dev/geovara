@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Map } from 'ol';
+import { Map, MapBrowserEvent } from 'ol';
 import { toLonLat } from 'ol/proj';
-import { MousePosition, ScaleLine } from 'ol/control';
+import { ScaleLine } from 'ol/control';
 
 interface StatusBarProps {
   map: Map | null;
@@ -28,7 +28,7 @@ export default function StatusBar({ map, projection }: StatusBarProps) {
     updateZoom();
 
     // Track mouse coordinates
-    const handlePointerMove = (evt: any) => {
+    const handlePointerMove = (evt: MapBrowserEvent<PointerEvent>) => {
       if (evt.dragging) return;
       const lonLat = toLonLat(evt.coordinate);
       setCoords(`${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}`);

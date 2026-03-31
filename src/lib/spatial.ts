@@ -17,7 +17,7 @@ export const GisService = {
     radius: number,
     units: 'meters' | 'kilometers' | 'miles' | 'degrees' = 'kilometers'
   ): Feature<Polygon | MultiPolygon> {
-    // @ts-ignore
+    // @ts-expect-error: turf types mismatch with native geojson
     return turf.buffer(feature, radius, { units });
   },
 
@@ -27,7 +27,6 @@ export const GisService = {
   calculateCentroid(
     data: Feature<Geometry> | FeatureCollection<Geometry>
   ): Feature<Point> {
-    // @ts-ignore
     return turf.centroid(data);
   },
 
@@ -42,7 +41,7 @@ export const GisService = {
    * Calculates the length of a GeoJSON feature (LineString) in meters.
    */
   calculateLength(feature: Feature<Geometry>): number {
-    // @ts-ignore
+    // @ts-expect-error: turf types mismatch with native geojson
     return turf.length(feature, { units: 'meters' });
   },
 
@@ -53,16 +52,16 @@ export const GisService = {
     feat1: Feature<Geometry>,
     feat2: Feature<Geometry>
   ): boolean {
-    // @ts-ignore
-    const intersect = turf.intersect(turf.featureCollection([feat1 as any, feat2 as any]));
+    // @ts-expect-error: turf.intersect needs both features in newer versions
+    const intersect = turf.intersect(turf.featureCollection([feat1, feat2]));
     return !!intersect;
   },
 
   /**
    * Converts GeoJSON FeatureCollection to TopoJSON.
    */
-  toTopoJSON(geojson: FeatureCollection): any {
-    return topojson.topology({ data: geojson });
+  toTopoJSON(geojson: FeatureCollection): Topology {
+    return topojson.topology({ data: geojson }) as unknown as Topology;
   },
 
   /**
@@ -89,9 +88,9 @@ export const GisService = {
     for (const key of keys) {
       const obj = objects[key];
       if (obj == null) continue;
-      const gj = tj.feature(top, obj);
+      const gj = tj.feature(top, obj) as unknown as FeatureCollection | Feature;
       if (gj.type === 'FeatureCollection') {
-        features.push(...gj.features);
+        features.push(...gj.features as Feature<Geometry>[]);
       } else {
         features.push(gj as Feature<Geometry>);
       }
@@ -107,7 +106,7 @@ export const GisService = {
     tolerance: number = 0.01,
     highQuality: boolean = false
   ): Feature<Geometry> {
-    // @ts-ignore
+    // @ts-expect-error: turf.simplify typing issue
     return turf.simplify(feature, { tolerance, highQuality });
   },
 
@@ -118,9 +117,8 @@ export const GisService = {
      features: Feature<Geometry>[]
   ): Feature<Polygon | MultiPolygon> | null {
     if (features.length < 2) return null;
-    // @ts-ignore
-    const collection = turf.featureCollection(features as any);
-    // @ts-ignore
+    const collection = turf.featureCollection(features);
+    // @ts-expect-error: turf.union typing issue
     return turf.union(collection);
   }
 };
