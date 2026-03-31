@@ -220,11 +220,9 @@ export default function MapComponent({
     <div className="w-full h-full relative group">
       <div ref={mapElement} className="w-full h-full outline-none" />
       
-      <Compass map={map} />
-      
       <LocationSearch map={map} />
-
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
+      <div className="absolute top-[0.75rem] right-[0.75rem] flex flex-col gap-3 z-30 items-end">
+        <Compass map={map} />
         <DrawingTools 
           map={map}
           drawType={drawType}
@@ -238,7 +236,7 @@ export default function MapComponent({
         />
       </div>
 
-      <div className="absolute bottom-4 right-4 flex flex-col gap-2 items-end z-30">
+      <div className="absolute bottom-12 right-[0.75rem] flex flex-col gap-2 items-end z-30">
         <MeasurementController map={map} activeType={drawType as 'MeasureArea' | 'MeasureDistance' | null} />
         <CesiumController map={map} enabled={is3d} />
       </div>

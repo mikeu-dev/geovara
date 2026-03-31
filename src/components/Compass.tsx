@@ -35,7 +35,7 @@ export default function Compass({ map }: CompassProps) {
   if (!map) return null;
 
   return (
-    <div className="absolute top-20 right-4 z-10 flex flex-col gap-2">
+    <div className="z-10 flex flex-col gap-2">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>

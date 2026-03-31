@@ -109,7 +109,7 @@ export default function LocationSearch({ map }: LocationSearchProps) {
   }, []);
 
   return (
-    <div ref={containerRef} className="absolute top-3 left-[3.5rem] z-40 w-72">
+    <div ref={containerRef} className="absolute top-[0.75rem] left-[3rem] z-40 w-72">
       <div className={`
         flex items-center gap-2 px-3 py-2 rounded-lg
         status-bar transition-all duration-200
