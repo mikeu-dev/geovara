@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
@@ -15,9 +15,11 @@ import { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 import { DrawEvent } from 'ol/interaction/Draw';
 import { SelectEvent } from 'ol/interaction/Select';
-import { ModifyEvent } from 'ol/interaction/Modify';
 import { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
-import { Zoom, Attribution, defaults as defaultControls } from 'ol/control';
+import { Zoom, Attribution, ScaleLine, defaults as defaultControls } from 'ol/control';
+import { Style } from 'ol/style';
+import type { StyleLike } from 'ol/style/Style';
+import type { Type } from 'ol/geom/Geometry';
 
 export type DrawType = 'Point' | 'LineString' | 'Polygon' | 'Rectangle' | 'Circle' | 'Edit' | 'Delete' | 'MeasureDistance' | 'MeasureArea';
 
@@ -28,9 +30,11 @@ interface UseMapOptions {
   drawType: DrawType | null;
   setDrawType: (type: DrawType | null) => void;
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
-  onDeleteFeature: (id: string | number | undefined) => void;
-  styleFunction: (feature: Feature<Geometry>) => any;
+  styleFunction: (feature: Feature<Geometry>) => Style | Style[] | undefined;
   projection: 'EPSG:4326' | 'EPSG:3857';
+  vectorOpacity: number;
+  vectorVisible: boolean;
+  basemapOpacity: number;
 }
 
 export function useMap({
@@ -40,21 +44,28 @@ export function useMap({
   drawType,
   setDrawType,
   onFeatureSelect,
-  onDeleteFeature,
   styleFunction,
   projection,
+  vectorOpacity,
+  vectorVisible,
+  basemapOpacity,
 }: UseMapOptions) {
+  const [map, setMap] = useState<Map | null>(null);
   const mapInstance = useRef<Map | null>(null);
-  const vectorSource = useRef(new VectorSource());
-  const tileLayer = useRef(new TileLayer({ source: new OSM() }));
+  
+  // Use state for stable OL objects to avoid Ref-access-during-render errors
+  const [vectorSource] = useState(() => new VectorSource<Feature<Geometry>>());
+  const [tileLayer] = useState(() => new TileLayer({ source: new OSM() }));
+  const [selectInteraction] = useState(() => new Select({ hitTolerance: 5 }));
+  const [modifyInteraction] = useState(() => new Modify({ source: vectorSource }));
+  
+  const vectorLayerRef = useRef<VectorImageLayer<Feature<Geometry>> | null>(null);
   const drawInteraction = useRef<Draw | null>(null);
-  const selectInteraction = useRef<Select | null>(null);
-  const modifyInteraction = useRef<Modify | null>(null);
   const isUpdatingFromHash = useRef(false);
 
-  // View Sync Logic
   const updateViewFromHash = useCallback(() => {
-    if (!mapInstance.current) return;
+    const activeMap = mapInstance.current;
+    if (!activeMap) return;
     const hash = window.location.hash.substring(1).split('&').find(p => p.startsWith('map='));
     if (!hash) return;
 
@@ -64,7 +75,7 @@ export function useMap({
       const lat = parseFloat(parts[1]);
       const lon = parseFloat(parts[2]);
       if (!isNaN(zoom) && !isNaN(lat) && !isNaN(lon)) {
-        const view = mapInstance.current.getView();
+        const view = activeMap.getView();
         isUpdatingFromHash.current = true;
         view.setCenter(fromLonLat([lon, lat]));
         view.setZoom(zoom);
@@ -72,17 +83,18 @@ export function useMap({
     }
   }, []);
 
-  // Initialize Map
   useEffect(() => {
     if (!target.current || mapInstance.current) return;
 
     const vectorLayer = new VectorImageLayer({
-      source: vectorSource.current,
-      style: styleFunction as any,
+      source: vectorSource,
+      style: styleFunction as StyleLike,
       imageRatio: 2,
+      opacity: vectorOpacity,
+      visible: vectorVisible,
     });
+    vectorLayerRef.current = vectorLayer;
 
-    // Initial view from hash
     let center = fromLonLat([0, 0]);
     let zoom = 2;
     const initialHash = window.location.hash.substring(1).split('&').find(p => p.startsWith('map='));
@@ -94,42 +106,48 @@ export function useMap({
         }
     }
 
-    const map = new Map({
+    const newMap = new Map({
       target: target.current,
       layers: [
-        tileLayer.current,
+        tileLayer,
         vectorLayer,
       ],
       view: new View({ center, zoom }),
       controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
         new Zoom(),
-        new Attribution({ collapsible: true })
+        new Attribution({ collapsible: true }),
+        new ScaleLine({ units: 'metric' })
       ])
     });
 
-    mapInstance.current = map;
+    mapInstance.current = newMap;
+    // Non-blocking state update to satisfy React 18 / Hydration rules
+    setTimeout(() => {
+      setMap(newMap);
+    }, 0);
 
-    // View Hash Sync
     const updateHash = () => {
       if (isUpdatingFromHash.current) {
         isUpdatingFromHash.current = false;
         return;
       }
-      const view = map.getView();
-      const c = toLonLat(view.getCenter()!);
+      const view = newMap.getView();
+      const centerCoord = view.getCenter();
+      if (!centerCoord) return;
+      
+      const c = toLonLat(centerCoord);
       const z = view.getZoom();
       const mapHash = `map=${z?.toFixed(2)}/${c[1].toFixed(4)}/${c[0].toFixed(4)}`;
       
-      const currentHash = window.location.hash.substring(1);
-      const otherParts = currentHash.split('&').filter(p => !p.startsWith('map='));
-      const newHash = [...otherParts, mapHash].join('&');
-      window.history.replaceState(null, '', `#${newHash}`);
+      const currentHashValue = window.location.hash.substring(1);
+      const otherParts = currentHashValue.split('&').filter(p => !p.startsWith('map='));
+      const newHashValue = [...otherParts, mapHash].join('&');
+      window.history.replaceState(null, '', `#${newHashValue}`);
     };
 
-    map.on('moveend', updateHash);
+    newMap.on('moveend', updateHash);
     window.addEventListener('hashchange', updateViewFromHash);
 
-    // Drag and Drop
     const dragAndDrop = new DragAndDrop({
       formatConstructors: [
         topoJsonDragFormat,
@@ -146,29 +164,25 @@ export function useMap({
         setFeatures(prev => [...prev, ...dropped]);
       }
     });
-    map.addInteraction(dragAndDrop);
+    newMap.addInteraction(dragAndDrop);
 
-    // Select
-    selectInteraction.current = new Select({ 
-        style: styleFunction as any,
-        hitTolerance: 5 
-    });
-    map.addInteraction(selectInteraction.current);
-    selectInteraction.current.on('select', (e: SelectEvent) => {
-      onFeatureSelect(e.selected[0] || null);
+    newMap.addInteraction(selectInteraction);
+    selectInteraction.on('select', (event: SelectEvent) => {
+      onFeatureSelect(event.selected[0] || null);
     });
 
-    // Modify
-    modifyInteraction.current = new Modify({ source: vectorSource.current });
-    map.addInteraction(modifyInteraction.current);
-    modifyInteraction.current.on('modifyend', () => setFeatures(prev => [...prev]));
+    newMap.addInteraction(modifyInteraction);
+    modifyInteraction.on('modifyend', () => setFeatures(prev => [...prev]));
     
-    // Global FlyTo Listener
-    const handleFlyTo = (e: any) => {
-      const { lon, lat, boundingbox } = e.detail;
-      const view = map.getView();
+    const handleFlyTo = (event: Event) => {
+      const customEvent = event as CustomEvent<{ 
+        lon?: number; 
+        lat?: number; 
+        boundingbox?: string[];
+      }>;
+      const { lon, lat, boundingbox } = customEvent.detail;
+      const view = newMap.getView();
       if (boundingbox) {
-        // [minLat, maxLat, minLon, maxLon] from Nominatim
         const [minLat, maxLat, minLon, maxLon] = boundingbox.map(parseFloat);
         const extent = transformExtent([minLon, minLat, maxLon, maxLat], 'EPSG:4326', 'EPSG:3857');
         view.fit(extent, { duration: 1000, padding: [50, 50, 50, 50] });
@@ -177,11 +191,11 @@ export function useMap({
       }
     };
 
-    // Global Basemap Listener
-    const handleBasemap = (e: any) => {
-      const { basemap } = e.detail;
+    const handleBasemap = (event: Event) => {
+      const customEvent = event as CustomEvent<{ basemap: string }>;
+      const { basemap: basemapType } = customEvent.detail;
       let source;
-      switch (basemap.toLowerCase()) {
+      switch (basemapType.toLowerCase()) {
         case 'satellite':
         case 'imagery':
           source = new XYZ({
@@ -200,7 +214,7 @@ export function useMap({
         case 'night':
           source = new XYZ({
             url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            attributions: '© <a href="https://carto.com/attributions">CARTO</a>'
+            attributions: '© <a href="https:// carto.com/attributions">CARTO</a>'
           });
           break;
         case 'osm':
@@ -208,7 +222,7 @@ export function useMap({
           source = new OSM();
           break;
       }
-      tileLayer.current.setSource(source);
+      tileLayer.setSource(source);
     };
 
     window.addEventListener('map:flyto', handleFlyTo);
@@ -221,49 +235,87 @@ export function useMap({
       if (mapInstance.current) {
         mapInstance.current.dispose();
         mapInstance.current = null;
+        setMap(null);
       }
     };
-  }, []);
+  }, [target, styleFunction, vectorOpacity, vectorVisible, updateViewFromHash, onFeatureSelect, setFeatures, vectorSource, tileLayer, selectInteraction, modifyInteraction]);
 
-  // Sync Interactions with DrawType
   useEffect(() => {
-    const map = mapInstance.current;
-    if (!map) return;
+    const activeMap = map;
+    if (!activeMap) return;
+    activeMap.getLayers().forEach((layer) => {
+      if (layer instanceof TileLayer) layer.setOpacity(basemapOpacity);
+      if (layer instanceof VectorImageLayer) {
+        layer.setOpacity(vectorOpacity);
+        layer.setVisible(vectorVisible);
+      }
+    });
+
+    if (vectorSource) {
+      vectorSource.getFeatures().forEach((f: Feature<Geometry>) => {
+        const style = f.getStyle();
+        if (style && !Array.isArray(style) && typeof (style as unknown as { getStroke: () => unknown }).getStroke === 'function') {
+           const styleObj = style as Style;
+           const stroke = styleObj.getStroke();
+           if (stroke) {
+             const color = stroke.getColor();
+             if (Array.isArray(color)) {
+               const newColor = [...color];
+               newColor[3] = vectorOpacity;
+               stroke.setColor(newColor);
+             }
+           }
+           const fill = styleObj.getFill();
+           if (fill) {
+             const color = fill.getColor();
+             if (Array.isArray(color)) {
+               const newColor = [...color];
+               newColor[3] = vectorOpacity * 0.5;
+               fill.setColor(newColor);
+             }
+           }
+        }
+      });
+    }
+  }, [vectorOpacity, vectorVisible, basemapOpacity, map, vectorSource]);
+
+  useEffect(() => {
+    const activeMap = mapInstance.current;
+    if (!activeMap) return;
 
     if (drawInteraction.current) {
-      map.removeInteraction(drawInteraction.current);
+      activeMap.removeInteraction(drawInteraction.current);
       drawInteraction.current = null;
     }
 
     const isDrawing = drawType && ['Point', 'LineString', 'Polygon', 'Rectangle', 'Circle'].includes(drawType);
-    selectInteraction.current?.setActive(!isDrawing);
-    modifyInteraction.current?.setActive(drawType === 'Edit');
+    selectInteraction.setActive(!isDrawing);
+    modifyInteraction.setActive(drawType === 'Edit');
 
     if (isDrawing) {
-      const type = drawType === 'Rectangle' ? 'Circle' : (drawType as any);
+      const type = (drawType === 'Rectangle' ? 'Circle' : drawType) as Type;
       const geometryFunction = drawType === 'Rectangle' ? createBox() : undefined;
 
       drawInteraction.current = new Draw({
-        source: vectorSource.current,
+        source: vectorSource,
         type,
         geometryFunction,
       });
 
-      drawInteraction.current.on('drawend', (e: DrawEvent) => {
-        const feature = e.feature;
+      drawInteraction.current.on('drawend', (event: DrawEvent) => {
+        const feature = event.feature;
         feature.setId(`${drawType}_${Date.now()}`);
         setFeatures(prev => [...prev, feature]);
-        setTimeout(() => setDrawType(null), 0); // Async to avoid loop
+        setTimeout(() => setDrawType(null), 0);
         onFeatureSelect(feature);
       });
 
-      map.addInteraction(drawInteraction.current);
+      activeMap.addInteraction(drawInteraction.current);
     }
-  }, [drawType]);
+  }, [drawType, setFeatures, setDrawType, onFeatureSelect, vectorSource, selectInteraction, modifyInteraction]);
 
-  // Sync Features
   useEffect(() => {
-    const source = vectorSource.current;
+    const source = vectorSource;
     if (!source) return;
 
     const featuresInStateIds = features.map(f => f.getId());
@@ -282,14 +334,13 @@ export function useMap({
     });
 
     source.changed();
-  }, [features]);
+  }, [features, vectorSource]);
 
-  // Sync View Projection
   useEffect(() => {
-    const map = mapInstance.current;
-    if (!map) return;
+    const activeMap = mapInstance.current;
+    if (!activeMap) return;
     
-    const view = map.getView();
+    const view = activeMap.getView();
     if (!view) return;
     
     const projectionObj = view.getProjection();
@@ -299,10 +350,9 @@ export function useMap({
        const center = view.getCenter();
        const zoom = view.getZoom();
        
-       // Explicitly transform center between projections to avoid "out of bounds" crashes
        const newCenter = center ? transform(center, currentProj, projection) : [0, 0];
        
-       map.setView(new View({
+       activeMap.setView(new View({
          projection,
          center: newCenter,
          zoom: zoom || 2,
@@ -310,10 +360,12 @@ export function useMap({
     }
   }, [projection]);
 
-  return {
-    map: mapInstance.current,
-    vectorSource: vectorSource.current,
-    tileLayer: tileLayer.current,
-    selectInteraction: selectInteraction.current,
-  };
+  const result = useMemo(() => ({
+    map,
+    vectorSource,
+    tileLayer,
+    selectInteraction,
+  }), [map, vectorSource, tileLayer, selectInteraction]);
+
+  return result;
 }

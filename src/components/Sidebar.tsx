@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -21,9 +21,11 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Copy, Trash2, CheckCircle, AlertTriangle, Loader2, 
-  FileDown, Sparkles, Sun, Moon, Check, Link2, 
-  Map as MapIcon, Crosshair, Share2, Undo2, Redo2 
+  FileDown, Sparkles, Sun, Moon, Check, 
+  Map as MapIcon, Crosshair, Share2, Undo2, Redo2,
+  Layers, Eye, EyeOff
 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { validateGeoJSON } from '@/ai/flows/validate-geojson';
 import { GisService } from '@/lib/spatial';
 import { Feature as GeoJSONFeature, FeatureCollection } from 'geojson';
@@ -38,12 +40,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpContent from './HelpContent';
 import FileDropZone from './FileDropZone';
 import { getArea, getLength } from 'ol/sphere';
-import { LineString, Polygon, MultiPolygon } from 'ol/geom';
 import {
   parseGeoJsonStringInWorker,
   shouldParseGeoJsonInWorker,
 } from '@/lib/geojson-worker-parse';
-
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -63,8 +63,13 @@ interface SidebarProps {
   onDeleteFeature: (id: string | number | undefined) => void;
   onZoomToFeature: (id: string | number) => void;
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
-  /** Shown during heavy file import / parse so the main thread can paint the overlay first */
   onHeavyParseChange?: (busy: boolean) => void;
+  vectorOpacity: number;
+  onVectorOpacityChange: (value: number) => void;
+  vectorVisible: boolean;
+  onVectorVisibleChange: (value: boolean) => void;
+  basemapOpacity: number;
+  onBasemapOpacityChange: (value: number) => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -76,6 +81,7 @@ const kmlFormat = new KML({
   extractStyles: true,
   showPointNames: true,
 });
+
 export default function Sidebar({ 
   geojsonString, 
   onGeojsonChange, 
@@ -90,6 +96,12 @@ export default function Sidebar({
   onZoomToFeature,
   onFeatureSelect,
   onHeavyParseChange,
+  vectorOpacity,
+  onVectorOpacityChange,
+  vectorVisible,
+  onVectorVisibleChange,
+  basemapOpacity,
+  onBasemapOpacityChange,
 }: SidebarProps) {
   const { toast } = useToast();
   const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'valid' | 'invalid'>('idle');
@@ -100,7 +112,7 @@ export default function Sidebar({
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
     setTheme(initialTheme);
     if (initialTheme === 'dark') {
@@ -166,14 +178,14 @@ export default function Sidebar({
       const bufferedFeatures: GeoJSONFeature[] = [];
       
       geojson.features.forEach(feature => {
-        const buffered = GisService.createBuffer(feature as any, r);
+        const buffered = GisService.createBuffer(feature as GeoJSONFeature, r);
         buffered.properties = { 
           ...feature.properties, 
           type: 'buffer', 
           parent_id: feature.id || 'unknown',
           buffer_radius: r 
         };
-        bufferedFeatures.push(buffered as any);
+        bufferedFeatures.push(buffered as GeoJSONFeature);
       });
 
       const newGeojson = {
@@ -198,7 +210,7 @@ export default function Sidebar({
       
       const newGeojson = {
         ...geojson,
-        features: [...geojson.features, centroid as any]
+        features: [...geojson.features, centroid as GeoJSONFeature]
       };
       
       onGeojsonChange(JSON.stringify(newGeojson, null, 2));
@@ -223,14 +235,14 @@ export default function Sidebar({
     try {
       const geojson = JSON.parse(geojsonString) as FeatureCollection;
       const simplifiedFeatures = geojson.features.map(f => {
-        const simplified = GisService.simplifyGeometry(f as any, t);
+        const simplified = GisService.simplifyGeometry(f as GeoJSONFeature, t);
         return { ...simplified, properties: { ...f.properties, simplified: true, tolerance: t } };
       });
 
       const newGeojson = { ...geojson, features: simplifiedFeatures };
       onGeojsonChange(JSON.stringify(newGeojson, null, 2));
       toast({ title: 'Geometry simplified' });
-    } catch (e) {
+    } catch {
       toast({ title: 'Simplification failed', variant: 'destructive' });
     }
   };
@@ -246,16 +258,15 @@ export default function Sidebar({
         return;
       }
 
-      const unioned = GisService.unionFeatures(polygons as any);
+      const unioned = GisService.unionFeatures(polygons as GeoJSONFeature[]);
       if (unioned) {
         unioned.properties = { type: 'union_result', generated_at: new Date().toISOString() };
-        // Remove old polygons and add the new one
         const otherFeatures = geojson.features.filter(f => f.geometry.type !== 'Polygon' && f.geometry.type !== 'MultiPolygon');
-        const newGeojson = { ...geojson, features: [...otherFeatures, unioned as any] };
+        const newGeojson = { ...geojson, features: [...otherFeatures, unioned as GeoJSONFeature] };
         onGeojsonChange(JSON.stringify(newGeojson, null, 2));
         toast({ title: 'Polygons unioned successfully' });
       }
-    } catch (e) {
+    } catch {
       toast({ title: 'Union failed', variant: 'destructive' });
     }
   };
@@ -332,7 +343,7 @@ export default function Sidebar({
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         toast({ title: 'Successfully downloaded TopoJSON' });
-      } catch (e) {
+      } catch {
         toast({ title: 'Failed to generate TopoJSON', variant: 'destructive' });
       }
       return;
@@ -344,10 +355,10 @@ export default function Sidebar({
     }
 
     try {
-      const features = geojsonFormat.readFeatures(geojsonString) as Feature<Geometry>[];
-      let data: string | Blob;
-      let filename: string;
-      let mimeType: string;
+      const olFeatures = geojsonFormat.readFeatures(geojsonString) as Feature<Geometry>[];
+      let data: string | Blob = '';
+      let filename = '';
+      let mimeType = '';
 
       switch (format) {
         case 'geojson':
@@ -356,12 +367,12 @@ export default function Sidebar({
           mimeType = 'application/vnd.geo+json';
           break;
         case 'kml':
-          data = kmlFormat.writeFeatures(features);
+          data = kmlFormat.writeFeatures(olFeatures);
           filename = 'map.kml';
           mimeType = 'application/vnd.google-earth.kml+xml';
           break;
         case 'kmz':
-          const kmlData = kmlFormat.writeFeatures(features, {
+          const kmlData = kmlFormat.writeFeatures(olFeatures, {
             featureProjection: 'EPSG:4326',
             dataProjection: 'EPSG:4326',
           });
@@ -533,6 +544,7 @@ export default function Sidebar({
               <TabsList className="w-full">
                 <TabsTrigger value="json" className="flex-1">JSON</TabsTrigger>
                 <TabsTrigger value="features" className="flex-1">Features ({features.length})</TabsTrigger>
+                <TabsTrigger value="layers" className="flex-1">Layers</TabsTrigger>
                 <TabsTrigger value="help" className="flex-1">Help</TabsTrigger>
               </TabsList>
               <TabsContent value="json" className="flex-grow relative mt-2 rounded-md border border-input overflow-hidden">
@@ -689,6 +701,63 @@ export default function Sidebar({
                       );
                     })
                   )}
+                </div>
+              </TabsContent>
+              <TabsContent value="layers" className="flex-grow mt-2 overflow-y-auto">
+                <div className="space-y-6 pt-2 px-1">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-accent" />
+                        <span className="text-sm font-semibold">Vector Data</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-8 w-8"
+                           onClick={() => onVectorVisibleChange(!vectorVisible)}
+                         >
+                           {vectorVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                         </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+                         <span>Opacity</span>
+                         <span>{Math.round(vectorOpacity * 100)}%</span>
+                      </div>
+                      <Slider
+                        value={[vectorOpacity * 100]}
+                        max={100}
+                        step={1}
+                        onValueChange={(vals) => onVectorOpacityChange(vals[0] / 100)}
+                        className="py-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border/40 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapIcon className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold">Current Basemap</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+                        <span>Opacity</span>
+                        <span>{Math.round(basemapOpacity * 100)}%</span>
+                      </div>
+                      <Slider
+                        value={[basemapOpacity * 100]}
+                        max={100}
+                        step={1}
+                        onValueChange={(vals) => onBasemapOpacityChange(vals[0] / 100)}
+                        className="py-2"
+                      />
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="help" className="flex-grow mt-2 overflow-y-auto">

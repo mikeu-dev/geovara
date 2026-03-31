@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { Map } from 'ol';
 import { toLonLat } from 'ol/proj';
 import { MousePosition, ScaleLine } from 'ol/control';
-import { createStringXY } from 'ol/coordinate';
 
 interface StatusBarProps {
   map: Map | null;
@@ -53,7 +52,7 @@ export default function StatusBar({ map, projection }: StatusBarProps) {
   }, [map]);
 
   return (
-    <div className="status-bar absolute bottom-6 left-0 right-0 z-40 flex items-center justify-between px-3 py-1.5 text-muted-foreground gap-4 ring-1 ring-white/10">
+    <div className="status-bar fixed flex items-center justify-between z-40 px-3 py-2 text-muted-foreground gap-8 ring-1 ring-white/10">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-60">

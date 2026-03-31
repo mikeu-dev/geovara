@@ -1,221 +1,253 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Overlay } from 'ol';
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
-import { Feature } from 'ol';
+import { Overlay, Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
+import { Tile as TileLayer } from 'ol/layer';
+import VectorImageLayer from 'ol/layer/VectorImage';
+import BaseLayer from 'ol/layer/Base';
 import DrawingTools from './DrawingTools';
 import FeaturePropertiesPopup from './FeaturePropertiesPopup';
 import { useToast } from '@/hooks/use-toast';
+import Compass from './Compass';
 import { useMap, DrawType } from '@/hooks/useMap';
 import CesiumController from './CesiumController';
 import MeasurementController from './MeasurementController';
 import StatusBar from './StatusBar';
 import LocationSearch from './LocationSearch';
+import { OSM, XYZ } from 'ol/source';
 
 interface MapProps {
   features: Feature<Geometry>[];
-  setFeatures: React.Dispatch<React.SetStateAction<Feature<Geometry>[]>>;
+  setFeatures: (features: React.SetStateAction<Feature<Geometry>[]>) => void;
   drawType: DrawType | null;
-  setDrawType: React.Dispatch<React.SetStateAction<DrawType | null>>;
+  setDrawType: (type: DrawType | null) => void;
   selectedFeature: Feature<Geometry> | null;
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
-  onDeleteFeature: (featureId: string | number | undefined) => void;
-  onFeaturePropertyChange: (featureId: string | number, key: string, value: any) => void;
+  onDeleteFeature: (id: string | number | undefined) => void;
+  onFeaturePropertyChange: (id: string | number, key: string, value: unknown) => void;
   projection: 'EPSG:4326' | 'EPSG:3857';
   onProjectionChange: (proj: 'EPSG:4326' | 'EPSG:3857') => void;
   zoomToId: string | number | null;
+  vectorOpacity: number;
+  vectorVisible: boolean;
+  basemapOpacity: number;
+  is3d: boolean;
+  onToggle3d: () => void;
 }
 
-const selectedStyle = new Style({
-  fill: new Fill({ color: 'hsla(0, 100%, 50%, 0.3)' }),
-  stroke: new Stroke({ color: 'hsl(0, 100%, 50%)', width: 3 }),
-  image: new CircleStyle({
-    radius: 7,
-    fill: new Fill({ color: 'hsla(0, 100%, 50%, 0.7)' }),
-    stroke: new Stroke({ color: 'hsl(0, 100%, 50%)', width: 2 }),
-  }),
-});
-
-const defaultStyles = {
-  'Point': new Style({
-    image: new CircleStyle({
-      radius: 7,
-      fill: new Fill({ color: 'hsla(180, 100%, 25%, 0.7)' }),
-      stroke: new Stroke({ color: 'hsl(180, 100%, 25%)', width: 2 }),
-    }),
-  }),
-  'LineString': new Style({
-    stroke: new Stroke({ color: 'hsl(180, 100%, 25%)', width: 3 }),
-  }),
-  'Polygon': new Style({
-    stroke: new Stroke({ color: 'hsl(180, 100%, 25%)', width: 3 }),
-    fill: new Fill({ color: 'hsla(180, 100%, 25%, 0.3)' }),
-  }),
-};
-
-const styleFromProperties = (feature: Feature<Geometry>): Style | undefined => {
-  const props = feature.getProperties();
-  const geomType = feature.getGeometry()?.getType();
-
-  if (props['fill'] || props['stroke'] || props['radius']) {
-    const fill = props['fill'] ? new Fill({ color: props['fill'] }) : undefined;
-    const stroke = (props['stroke'] || props['stroke-width']) ? new Stroke({
-      color: props['stroke'] || '#3399CC',
-      width: props['stroke-width'] || 2,
-    }) : undefined;
-
-    if (geomType === 'Point' || geomType === 'MultiPoint') {
-      return new Style({
-        image: new CircleStyle({
-          fill: fill || new Fill({ color: 'hsla(180, 100%, 25%, 0.7)' }),
-          stroke: stroke || new Stroke({ color: 'hsl(180, 100%, 25%)', width: 2 }),
-          radius: props['radius'] || 7,
-        }),
-      });
-    }
-    return new Style({ fill, stroke });
-  }
-  return undefined;
-};
-
-export default function MapComponent(props: MapProps) {
-  const { features, selectedFeature, onFeatureSelect, onDeleteFeature, drawType, setDrawType, zoomToId } = props;
-  const mapRef = useRef<HTMLDivElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
+export default function MapComponent({
+  features,
+  setFeatures,
+  drawType,
+  setDrawType,
+  selectedFeature,
+  onFeatureSelect,
+  onDeleteFeature,
+  onFeaturePropertyChange,
+  projection,
+  onProjectionChange,
+  zoomToId,
+  vectorOpacity,
+  vectorVisible,
+  basemapOpacity,
+  is3d,
+  onToggle3d,
+}: MapProps) {
+  const mapElement = useRef<HTMLDivElement>(null);
+  const popupElement = useRef<HTMLDivElement>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [is3d, setIs3d] = useState(false);
   const { toast } = useToast();
 
   const styleFunction = useCallback((feature: Feature<Geometry>) => {
-    const isSelected = selectedFeature && feature.getId() === selectedFeature.getId();
-    if (isSelected) return selectedStyle;
+    const fill = feature.get('fill') || 'rgba(147, 51, 234, 0.2)';
+    const stroke = feature.get('stroke') || '#9333ea';
+    const strokeWidth = feature.get('strokeWidth') || 3;
+    
+    return new Style({
+      fill: new Fill({ color: fill }),
+      stroke: new Stroke({ color: stroke, width: strokeWidth }),
+      image: new CircleStyle({
+        radius: 7,
+        fill: new Fill({ color: fill }),
+        stroke: new Stroke({ color: stroke, width: 2 }),
+      }),
+    });
+  }, []);
 
-    const customStyle = styleFromProperties(feature);
-    if (customStyle) return customStyle;
-
-    const geomType = feature.getGeometry()?.getType();
-    const baseType = geomType?.includes('Polygon') ? 'Polygon' : geomType?.includes('Line') ? 'LineString' : 'Point';
-    return defaultStyles[baseType as keyof typeof defaultStyles] || defaultStyles['Point'];
-  }, [selectedFeature]);
-
-  const { map, selectInteraction, tileLayer } = useMap({
-    target: mapRef,
+  const { map, vectorSource, tileLayer } = useMap({
+    target: mapElement,
+    features,
+    setFeatures,
+    drawType,
+    setDrawType,
+    onFeatureSelect,
     styleFunction,
-    ...props
+    projection,
+    vectorOpacity,
+    vectorVisible,
+    basemapOpacity,
   });
 
-  // Handle Popup & Selection Overlay
   useEffect(() => {
-    if (!map) return;
-
+    if (!map || !popupElement.current) return;
     const popupOverlay = new Overlay({
-      element: popupRef.current!,
-      autoPan: false,
-      positioning: 'center-center',
+      element: popupElement.current,
+      autoPan: { animation: { duration: 250 } },
     });
     map.addOverlay(popupOverlay);
 
     const handleKeydown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable ||
-          target.closest('.monaco-editor'))
-      ) {
-        return;
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFeature) {
-        e.preventDefault();
-        onDeleteFeature(selectedFeature.getId());
-        setIsPopupOpen(false);
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.closest('.monaco-editor')
+      ) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedFeature) {
+          onDeleteFeature(selectedFeature.getId());
+          toast({ title: "Feature deleted", description: `ID: ${selectedFeature.getId()}` });
+        }
       }
     };
-    document.addEventListener('keydown', handleKeydown);
 
+    window.addEventListener('keydown', handleKeydown);
     return () => {
+      window.removeEventListener('keydown', handleKeydown);
       map.removeOverlay(popupOverlay);
-      document.removeEventListener('keydown', handleKeydown);
     };
-  }, [map, selectedFeature, onDeleteFeature]);
+  }, [map, selectedFeature, onDeleteFeature, toast]);
 
-  // Sync Popup Position
   useEffect(() => {
-    const overlay = map?.getOverlays().getArray()[0];
-    if (isPopupOpen && selectedFeature && overlay) {
-      const geometry = selectedFeature.getGeometry() as any;
+    if (!map || !selectedFeature || !isPopupOpen) return;
+    const overlay = map.getOverlays().getArray().find(o => o.getElement() === popupElement.current);
+    if (overlay) {
+      const geometry = selectedFeature.getGeometry();
       if (geometry) {
-        const type = geometry.getType();
-        if (type.includes('Polygon')) overlay.setPosition(geometry.getInteriorPoint().getCoordinates());
-        else if (type.includes('Line')) overlay.setPosition(geometry.getCoordinateAt(0.5));
-        else overlay.setPosition(geometry.getCoordinates());
+        let coordinate: number[] | undefined;
+        const geom = geometry as unknown as { 
+          getInteriorPoint?: () => { getCoordinates: () => number[] };
+          getCenter?: () => number[];
+          getCoordinates?: () => number[] | number[][];
+        };
+        
+        if (typeof geom.getInteriorPoint === 'function') {
+          const interiorPoint = geom.getInteriorPoint();
+          if (interiorPoint) coordinate = interiorPoint.getCoordinates();
+        } else if (typeof geom.getCenter === 'function') {
+           coordinate = geom.getCenter();
+        } else if (typeof geom.getCoordinates === 'function') {
+           const coords = geom.getCoordinates();
+           if (coords) {
+             coordinate = Array.isArray(coords[0]) ? (coords[0] as number[]) : (coords as number[]);
+           }
+        }
+        if (coordinate) overlay.setPosition(coordinate);
       }
-    } else {
-      overlay?.setPosition(undefined);
     }
   }, [selectedFeature, isPopupOpen, map]);
 
   useEffect(() => {
-    if (selectedFeature) setIsPopupOpen(true);
+    if (selectedFeature) {
+       setTimeout(() => setIsPopupOpen(true), 0);
+    } else {
+       setTimeout(() => setIsPopupOpen(false), 0);
+    }
   }, [selectedFeature]);
 
-  // Handle ZoomTo request
   useEffect(() => {
-    if (zoomToId && map) {
-      const feature = map.getLayers().getArray()
-        .filter(l => (l as any).getSource()?.getFeatureById)
-        .map(l => (l as any).getSource().getFeatureById(zoomToId))
-        .find(f => f);
+    if (!map) return;
+    map.getLayers().forEach((layer: BaseLayer) => {
+      if (layer instanceof TileLayer) layer.setOpacity(basemapOpacity);
+      if (layer instanceof VectorImageLayer) {
+        layer.setOpacity(vectorOpacity);
+        layer.setVisible(vectorVisible);
+      }
+    });
 
-      if (feature) {
-        const geometry = feature.getGeometry();
-        if (geometry) {
-          map.getView().fit(geometry.getExtent(), {
-            padding: [50, 50, 50, 50],
-            duration: 1000,
-            maxZoom: 18
-          });
-          onFeatureSelect(feature);
+    if (vectorSource) {
+      vectorSource.getFeatures().forEach((f: Feature<Geometry>) => {
+        const style = f.getStyle();
+        if (style && !Array.isArray(style) && typeof (style as unknown as { getStroke: () => unknown }).getStroke === 'function') {
+          const styleObj = style as Style;
+          const stroke = styleObj.getStroke();
+          if (stroke) {
+            const color = stroke.getColor();
+            if (Array.isArray(color)) {
+              const newColor = [...color];
+              newColor[3] = vectorOpacity;
+              stroke.setColor(newColor);
+            }
+          }
+          const fill = styleObj.getFill();
+          if (fill) {
+            const color = fill.getColor();
+            if (Array.isArray(color)) {
+              const newColor = [...color];
+              newColor[3] = vectorOpacity * 0.5;
+              fill.setColor(newColor);
+            }
+          }
         }
+      });
+    }
+  }, [vectorOpacity, vectorVisible, basemapOpacity, map, vectorSource]);
+
+  useEffect(() => {
+    if (!map || !zoomToId) return;
+    const feature = vectorSource?.getFeatureById(zoomToId);
+    if (feature) {
+      const geometry = feature.getGeometry();
+      if (geometry) {
+        map.getView().fit(geometry.getExtent(), {
+          duration: 1000,
+          padding: [50, 50, 50, 50],
+          maxZoom: 18,
+        });
+        onFeatureSelect(feature as Feature<Geometry>);
       }
     }
-  }, [zoomToId, map, onFeatureSelect]);
-
-  const handleToggle3d = () => {
-    setIs3d(!is3d);
-    if (!is3d) toast({ title: "3D mode is under development.", duration: 3000 });
-  }
+  }, [zoomToId, map, vectorSource, onFeatureSelect]);
 
   return (
-    <div ref={mapRef} className="w-full h-full relative">
+    <div className="w-full h-full relative group">
+      <div ref={mapElement} className="w-full h-full outline-none" />
+      
+      <Compass map={map} />
+      
       <LocationSearch map={map} />
-      <CesiumController map={map} enabled={is3d} />
-      <MeasurementController 
-        map={map} 
-        activeType={drawType === 'MeasureDistance' || drawType === 'MeasureArea' ? drawType : null} 
-      />
-      <DrawingTools 
-        map={map} 
-        drawType={drawType} 
-        setDrawType={setDrawType} 
-        featuresCount={features.length} 
-        tileLayer={tileLayer}
-        is3d={is3d} 
-        onToggle3d={handleToggle3d} 
-        projection={props.projection}
-        onProjectionChange={props.onProjectionChange}
-      />
-      <StatusBar map={map} projection={props.projection} />
-      <div ref={popupRef} className="ol-popup">
+
+      <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <DrawingTools 
+          map={map}
+          drawType={drawType}
+          setDrawType={setDrawType}
+          featuresCount={features.length}
+          tileLayer={tileLayer as TileLayer<OSM | XYZ>}
+          is3d={is3d}
+          onToggle3d={onToggle3d}
+          projection={projection}
+          onProjectionChange={onProjectionChange}
+        />
+      </div>
+
+      <div className="absolute bottom-4 right-4 flex flex-col gap-2 items-end z-30">
+        <MeasurementController map={map} activeType={drawType as 'MeasureArea' | 'MeasureDistance' | null} />
+        <CesiumController map={map} enabled={is3d} />
+      </div>
+
+      <StatusBar map={map} projection={projection} />
+
+      <div ref={popupElement} className="min-w-[300px] z-50">
         {isPopupOpen && selectedFeature && (
           <FeaturePropertiesPopup
             feature={selectedFeature}
-            onDelete={(id) => { setIsPopupOpen(false); onDeleteFeature(id); }}
-            onPropertyChange={props.onFeaturePropertyChange}
-            onOpenChange={(open) => { setIsPopupOpen(open); if (!open) onFeatureSelect(null); }}
+            onOpenChange={(open: boolean) => { if(!open) setTimeout(() => setIsPopupOpen(false), 0); }}
+            onPropertyChange={onFeaturePropertyChange}
+            onDelete={onDeleteFeature}
           >
             <div />
           </FeaturePropertiesPopup>

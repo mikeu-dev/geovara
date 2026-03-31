@@ -8,18 +8,35 @@ interface CesiumControllerProps {
   enabled: boolean;
 }
 
+interface WindowWithCesium extends Window {
+  Cesium?: {
+    createWorldTerrainAsync: () => Promise<unknown>;
+    Cesium3DTileset: {
+      fromUrl: (url: string, options: unknown) => Promise<unknown>;
+    };
+  };
+  olcs?: {
+    OLCesium: new (options: { map: Map | null }) => {
+      getCesiumScene: () => {
+        terrainProvider: unknown;
+        primitives: { add: (tileset: unknown) => void };
+      };
+      setEnabled: (enabled: boolean) => void;
+    };
+  };
+}
+
 export default function CesiumController({ map, enabled }: CesiumControllerProps) {
-  const ol3d = useRef<any | null>(null);
+  const ol3d = useRef<{ setEnabled: (enabled: boolean) => void } | null>(null);
   const isInitialized = useRef(false);
 
   useEffect(() => {
     if (!map || typeof window === 'undefined') return;
 
     const initCesium = async () => {
-      // @ts-ignore - Cesium and olcs are loaded via CDN
-      const Cesium = (window as any).Cesium;
-      // @ts-ignore
-      const OLCesium = (window as any).olcs?.OLCesium;
+      const win = window as unknown as WindowWithCesium;
+      const Cesium = win.Cesium;
+      const OLCesium = win.olcs?.OLCesium;
 
       if (!Cesium || !OLCesium) {
         console.warn("Cesium or OLCesium not yet loaded from CDN");
@@ -51,7 +68,8 @@ export default function CesiumController({ map, enabled }: CesiumControllerProps
     };
 
     const interval = setInterval(() => {
-        if ((window as any).Cesium && (window as any).olcs?.OLCesium) {
+        const win = window as unknown as WindowWithCesium;
+        if (win.Cesium && win.olcs?.OLCesium) {
             initCesium();
             clearInterval(interval);
         }
