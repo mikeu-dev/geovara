@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Sun, Moon, HelpCircle, Github } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import HelpModal from './HelpContent';
@@ -44,14 +45,14 @@ export default function Header({ theme = 'light', onToggleTheme, is3d = false, o
 
   return (
     <header className="contents select-none">
-      <a
+      <Link
         href="/"
         aria-label="Geovara, beranda"
         className="absolute z-30 flex items-center justify-center rounded-cloud-a"
         style={{ left: M, top: M, width: TW, height: HH }}
       >
         <GeovaraMark />
-      </a>
+      </Link>
       <h1
         className="absolute z-30 flex items-center text-[22px] font-black tracking-tight text-foreground"
         style={{ left: M + TW + 32, top: M, height: HH }}

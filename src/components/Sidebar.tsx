@@ -16,7 +16,6 @@ import {
   Copy,
   Trash2,
   Code2,
-  CheckCircle,
   AlertTriangle,
   FileDown,
   Check,
