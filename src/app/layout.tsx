@@ -12,8 +12,8 @@ const BASE_URL = 'https://geovara.vercel.app';
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f5f6f8' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f1729' },
+    { media: '(prefers-color-scheme: light)', color: '#D9D7D2' },
+    { media: '(prefers-color-scheme: dark)', color: '#1D1E21' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -151,6 +151,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Red+Hat+Mono:wght@400;500;600&display=swap"
+        />
         <link rel="stylesheet" href={`${CESIUM_BASE}/Widgets/widgets.css`} />
         <Script
           id="cesium-base-url"

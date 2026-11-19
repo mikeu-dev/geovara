@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { Monaco } from '@monaco-editor/react';
 import dynamic from 'next/dynamic';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -15,7 +16,6 @@ import {
   Copy,
   Trash2,
   Code2,
-  CheckCircle,
   AlertTriangle,
   FileDown,
   Check,
@@ -23,7 +23,11 @@ import {
   Undo2,
   Redo2,
   ChevronRight,
+  ChevronLeft,
+  Table2,
+  Hexagon,
 } from 'lucide-react';
+import { CLOUD, footWidth } from '@/lib/cloud-shape';
 import {
   validateGeoJSONDeterministic,
   ValidationResult,
@@ -72,6 +76,9 @@ interface SidebarProps {
   onFeatureSelect: (feature: Feature<Geometry> | null) => void;
   onFeaturePropertyChange?: (featureId: string | number, key: string, value: unknown) => void;
   theme?: 'light' | 'dark';
+  /** Whether the editor piece is expanded (380px) or collapsed to its 100px rail. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -83,6 +90,49 @@ const kmlFormat = new KML({
   extractStyles: true,
   showPointNames: true,
 });
+
+const TOP = CLOUD.margin + CLOUD.headerH + CLOUD.gap;
+
+/** Monaco themes matching the smoke palette (transparent ground over the code well). */
+function defineSmokeThemes(monaco: Monaco) {
+  monaco.editor.defineTheme('geovara-smoke', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'string.key.json', foreground: '3E5C8A' },
+      { token: 'string.value.json', foreground: 'A44D1E' },
+      { token: 'number', foreground: '2E6B4A' },
+      { token: 'keyword.json', foreground: '2E6B4A' },
+      { token: 'delimiter', foreground: '5B5E65' },
+    ],
+    colors: {
+      'editor.background': '#FFFFFF00',
+      'editor.lineHighlightBackground': '#3E5C8A14',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorLineNumber.foreground': '#5B5E65',
+      'editorLineNumber.activeForeground': '#25272B',
+      'editor.selectionBackground': '#3E5C8A33',
+      'editorGutter.background': '#FFFFFF00',
+      'scrollbarSlider.background': '#25272B22',
+    },
+  });
+  monaco.editor.defineTheme('geovara-smoke-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'string.key.json', foreground: '86A2CF' },
+      { token: 'string.value.json', foreground: 'E79A6E' },
+      { token: 'number', foreground: '7FC39E' },
+      { token: 'keyword.json', foreground: '7FC39E' },
+    ],
+    colors: {
+      'editor.background': '#00000000',
+      'editorGutter.background': '#00000000',
+      'editor.lineHighlightBackground': '#86A2CF1A',
+      'editor.lineHighlightBorder': '#00000000',
+    },
+  });
+}
 
 interface MonacoCodeEditor {
   revealLineInCenter: (lineNumber: number) => void;
@@ -105,94 +155,27 @@ export default function Sidebar({
   onFeatureSelect,
   onFeaturePropertyChange,
   theme = 'light',
+  open,
+  onOpenChange,
 }: SidebarProps) {
   const { toast } = useToast();
   const editorRef = useRef<MonacoCodeEditor | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState<number>(380);
-  const [lastWidth, setLastWidth] = useState<number>(380);
-  const [isResizing, setIsResizing] = useState<boolean>(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [tab, setTab] = useState<'json' | 'table'>('json');
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
+  const width = open ? CLOUD.leftW : CLOUD.tabW;
+  const footW = footWidth(width);
 
-  const handleExpandSidebar = useCallback(() => {
-    setIsCollapsed(false);
-    const targetWidth = lastWidth >= 160 ? lastWidth : 380;
-    const maxWidth = Math.floor(window.innerWidth * 0.5);
-    const clamped = Math.min(targetWidth, maxWidth);
-    setSidebarWidth(clamped);
-    setLastWidth(clamped);
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 100);
-  }, [lastWidth]);
-
-  // Handle live horizontal drag resize
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const maxWidth = Math.floor(window.innerWidth * 0.5);
-      const newWidth = e.clientX;
-
-      if (newWidth < 140) {
-        // Dragged past left threshold -> collapse completely
-        setIsCollapsed(true);
-        setSidebarWidth(0);
-      } else {
-        setIsCollapsed(false);
-        const clampedWidth = Math.min(newWidth, maxWidth);
-        setSidebarWidth(clampedWidth);
-        setLastWidth(clampedWidth);
-      }
-      window.dispatchEvent(new Event('resize'));
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.dispatchEvent(new Event('resize'));
-    };
-
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isResizing]);
-
-  // Adjust max width on window resize
-  useEffect(() => {
-    const handleWindowResize = () => {
-      const maxWidth = Math.floor(window.innerWidth * 0.5);
-      setSidebarWidth((prev) => (prev > maxWidth ? maxWidth : prev));
-    };
-    window.addEventListener('resize', handleWindowResize);
-    return () => window.removeEventListener('resize', handleWindowResize);
-  }, []);
-
-  // Synchronize map viewport whenever sidebar is toggled or resized
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 320);
-    return () => clearTimeout(timer);
-  }, [isCollapsed]);
+  const openTab = useCallback(
+    (next: 'json' | 'table') => {
+      setTab(next);
+      onOpenChange(true);
+    },
+    [onOpenChange]
+  );
 
   // Automatic real-time GeoJSON validation (0ms, offline RFC 7946)
   useEffect(() => {
@@ -365,211 +348,229 @@ export default function Sidebar({
     }
   };
 
+  const fc = validationResult?.stats?.featureCount ?? features.length;
+  const iconBtn =
+    'w-9 h-9 p-0 justify-center rounded-cloud-sa text-muted-foreground hover:text-foreground hover:bg-smoke-mid/55 focus:bg-smoke-mid/55 data-[state=open]:bg-smoke-mid/55';
+
   return (
     <>
-      {/* Floating Restore Button when Left Sidebar is Collapsed */}
-      {isCollapsed && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={handleExpandSidebar}
-                className="absolute top-3 left-3 z-30 h-8 w-8 shadow-md border border-border/80 bg-card/90 backdrop-blur-sm hover:bg-accent text-foreground transition-transform hover:scale-105"
-                aria-label="Buka Sidebar Kiri (Code & Table)"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Buka Editor & Tabel</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-
-      {/* Main Left Sidebar Container */}
-      <div
-        style={{
-          width: isCollapsed ? 0 : `${sidebarWidth}px`,
-          minWidth: isCollapsed ? 0 : '160px',
-        }}
-        className={`
-          flex-shrink-0 border-r border-border bg-card/95 backdrop-blur-md
-          flex flex-col h-full relative overflow-hidden select-none
-          ${isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-in-out'}
-          ${isCollapsed ? 'border-none' : ''}
-        `}
+      <section
+        aria-label="Editor GeoJSON"
+        className="cloud-move absolute z-30 overflow-hidden select-none"
+        style={{ left: CLOUD.margin, top: TOP, bottom: TOP, width }}
       >
-        <div className="flex-1 flex flex-col p-3 min-h-0 overflow-hidden">
+        {/* Expanded editor */}
+        <div
+          className="cloud-fade absolute inset-y-0 left-0 flex flex-col"
+          style={{
+            width: CLOUD.leftW,
+            opacity: open ? 1 : 0,
+            pointerEvents: open ? 'auto' : 'none',
+            transform: `translateX(${open ? 0 : -40}px)`,
+          }}
+          aria-hidden={!open}
+        >
           <TooltipProvider>
-            {/* Top Toolbar Actions */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
-              <Menubar className="border-none p-0 h-auto bg-transparent w-full">
-                <div className="flex items-center gap-1 w-full justify-between">
-                  <div className="flex items-center gap-1">
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger
-                            className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors p-0 justify-center"
-                            onClick={() => setIsClearConfirmOpen(true)}
-                            disabled={featuresCount === 0 && (!geojsonString || !geojsonString.trim())}
-                            aria-label="Hapus semua fitur"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Hapus Semua Data</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
+            <div className="flex items-center justify-between pt-3 pb-2 pl-[22px] pr-[14px]">
+              <h2 className="text-[17px] font-black">Editor</h2>
+              <Menubar className="border-none p-0 h-auto bg-transparent gap-0.5 shadow-none">
+                <MenubarMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MenubarTrigger
+                        className={`${iconBtn} hover:text-destructive`}
+                        onClick={() => setIsClearConfirmOpen(true)}
+                        disabled={featuresCount === 0 && (!geojsonString || !geojsonString.trim())}
+                        aria-label="Hapus semua fitur"
+                      >
+                        <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                      </MenubarTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Hapus Semua Data</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </MenubarMenu>
 
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger
-                            className="w-8 h-8 p-0 justify-center"
-                            onClick={undo}
-                            disabled={!canUndo}
-                            aria-label="Undo"
-                          >
-                            <Undo2 className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Undo (Ctrl+Z)</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
+                <MenubarMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MenubarTrigger
+                        className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
+                        onClick={undo}
+                        disabled={!canUndo}
+                        aria-label="Undo"
+                      >
+                        <Undo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                      </MenubarTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Undo (Ctrl+Z)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </MenubarMenu>
 
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger
-                            className="w-8 h-8 p-0 justify-center"
-                            onClick={redo}
-                            disabled={!canRedo}
-                            aria-label="Redo"
-                          >
-                            <Redo2 className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Redo (Ctrl+Y)</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
-                  </div>
+                <MenubarMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MenubarTrigger
+                        className={iconBtn}
+                        onClick={redo}
+                        disabled={!canRedo}
+                        aria-label="Redo"
+                      >
+                        <Redo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                      </MenubarTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Redo (Ctrl+Y)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </MenubarMenu>
 
-                  <div className="flex items-center gap-1">
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-8 h-8 p-0 justify-center" onClick={handleCopyLink} aria-label="Share Map Link">
-                            {isLinkCopied ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Share2 className="h-4 w-4" />
-                            )}
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>{isLinkCopied ? 'Link Copied!' : 'Share Map Link'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </MenubarMenu>
+                <MenubarMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MenubarTrigger
+                        className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
+                        onClick={handleCopyLink}
+                        aria-label="Bagikan tautan peta"
+                      >
+                        {isLinkCopied ? (
+                          <Check className="h-[18px] w-[18px] text-success" strokeWidth={1.8} />
+                        ) : (
+                          <Share2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                        )}
+                      </MenubarTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{isLinkCopied ? 'Tautan disalin!' : 'Bagikan tautan peta'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </MenubarMenu>
 
-                    <MenubarMenu>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <MenubarTrigger className="w-8 h-8 p-0 justify-center" disabled={!geojsonString} aria-label="Export Data">
-                            <FileDown className="h-4 w-4" />
-                          </MenubarTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Export Dataset</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <MenubarContent>
-                        <MenubarItem onClick={() => handleDownload('geojson')}>
-                          Save as GeoJSON
-                        </MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('topojson')}>
-                          Save as TopoJSON
-                        </MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('csv')}>Save as CSV</MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('wkt')}>Save as WKT</MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('kml')}>Save as KML</MenubarItem>
-                        <MenubarItem onClick={() => handleDownload('kmz')}>Save as KMZ</MenubarItem>
-                      </MenubarContent>
-                    </MenubarMenu>
-                  </div>
-                </div>
+                <MenubarMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <MenubarTrigger
+                        className={iconBtn}
+                        disabled={!geojsonString}
+                        aria-label="Ekspor"
+                      >
+                        <FileDown className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                      </MenubarTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Ekspor Dataset</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <MenubarContent className="rounded-cloud-b">
+                    <MenubarItem onClick={() => handleDownload('geojson')}>
+                      Save as GeoJSON
+                    </MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('topojson')}>
+                      Save as TopoJSON
+                    </MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('csv')}>Save as CSV</MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('wkt')}>Save as WKT</MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('kml')}>Save as KML</MenubarItem>
+                    <MenubarItem onClick={() => handleDownload('kmz')}>Save as KMZ</MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onOpenChange(false)}
+                      className="w-9 h-9 ml-0.5 flex items-center justify-center rounded-cloud-sa bg-smoke-mid/55 text-foreground hover:bg-smoke-mid transition-colors"
+                      aria-label="Ciutkan editor"
+                    >
+                      <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Ciutkan editor</p>
+                  </TooltipContent>
+                </Tooltip>
               </Menubar>
             </div>
 
-            {/* Left Sidebar Tabs: JSON & Table */}
-            <Tabs defaultValue="json" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <TabsList className="w-full grid grid-cols-2 flex-shrink-0">
-                <TabsTrigger value="json" className="text-xs">
-                  JSON Editor
+            {/* JSON / Table segmented tabs with a sliding thumb */}
+            <Tabs
+              value={tab}
+              onValueChange={(v) => setTab(v as 'json' | 'table')}
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
+            >
+              <TabsList className="relative grid grid-cols-2 h-auto flex-shrink-0 mt-1 mb-2.5 ml-[22px] mr-[14px] p-1 rounded-cloud-a bg-smoke-mid/55">
+                <span
+                  aria-hidden="true"
+                  className="cloud-move cloud-spring absolute top-1 bottom-1 w-[calc(50%-4px)] bg-smoke-well/90 shadow-[0_3px_8px_rgb(var(--shadow-ink)/0.12)]"
+                  style={{
+                    left: tab === 'json' ? 4 : '50%',
+                    borderRadius: tab === 'json' ? '16px 8px 16px 8px' : '8px 16px 8px 16px',
+                  }}
+                />
+                <TabsTrigger
+                  value="json"
+                  className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  JSON
                 </TabsTrigger>
-                <TabsTrigger value="table" className="text-xs">
-                  Table ({features.length})
+                <TabsTrigger
+                  value="table"
+                  className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Tabel ({features.length})
                 </TabsTrigger>
               </TabsList>
 
               {/* JSON Monaco Editor Tab */}
               <TabsContent
                 value="json"
-                className="flex-1 relative mt-2 rounded-md border border-input overflow-hidden min-h-0"
+                className="flex-1 relative mt-0 mb-[18px] ml-[22px] mr-[14px] rounded-cloud-b bg-smoke-well/60 shadow-[inset_0_1px_2px_rgb(var(--shadow-ink)/0.06)] overflow-hidden min-h-0"
               >
                 {geojsonString && (
-                  <TooltipProvider>
-                    <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={handleFormatJson}
-                            disabled={!geojsonString || !geojsonString.trim()}
-                            aria-label="Format JSON"
-                          >
-                            <Code2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>Rapikan / Format JSON</p>
-                        </TooltipContent>
-                      </Tooltip>
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-cloud-sa bg-smoke-light/80 hover:bg-smoke-mid"
+                          onClick={handleFormatJson}
+                          disabled={!geojsonString || !geojsonString.trim()}
+                          aria-label="Format JSON"
+                        >
+                          <Code2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>Rapikan / Format JSON</p>
+                      </TooltipContent>
+                    </Tooltip>
 
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={handleCopy}
-                            aria-label="Copy to clipboard"
-                          >
-                            {isCopied ? (
-                              <Check className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <p>{isCopied ? 'Copied!' : 'Copy to clipboard'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-cloud-sb bg-smoke-light/80 hover:bg-smoke-mid"
+                          onClick={handleCopy}
+                          aria-label="Salin ke clipboard"
+                        >
+                          {isCopied ? (
+                            <Check className="h-4 w-4 text-success" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>{isCopied ? 'Disalin!' : 'Salin ke clipboard'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 )}
 
                 <Editor
@@ -581,6 +582,7 @@ export default function Sidebar({
                     editorRef.current = editor;
                   }}
                   beforeMount={(monaco) => {
+                    defineSmokeThemes(monaco);
                     monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
                       validate: true,
                       allowComments: false,
@@ -592,12 +594,18 @@ export default function Sidebar({
                       ],
                     });
                   }}
-                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                  theme={theme === 'dark' ? 'geovara-smoke-dark' : 'geovara-smoke'}
                   options={{
                     readOnly: false,
                     minimap: { enabled: false },
                     fontSize: 12,
+                    lineHeight: 22,
+                    fontFamily: "'Red Hat Mono', ui-monospace, monospace",
                     lineNumbers: 'on',
+                    lineNumbersMinChars: 3,
+                    glyphMargin: false,
+                    folding: false,
+                    padding: { top: 10 },
                     wordWrap: 'on',
                     tabSize: 2,
                     insertSpaces: true,
@@ -610,10 +618,11 @@ export default function Sidebar({
                     acceptSuggestionOnEnter: 'on',
                     tabCompletion: 'on',
                     quickSuggestions: { other: true, comments: false, strings: true },
-                    bracketPairColorization: { enabled: true },
+                    bracketPairColorization: { enabled: false },
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     renderLineHighlight: 'all',
+                    overviewRulerLanes: 0,
                     cursorBlinking: 'smooth',
                   }}
                 />
@@ -624,7 +633,7 @@ export default function Sidebar({
                     onClick={() =>
                       handleJumpToError(validationResult.line, validationResult.column)
                     }
-                    className="absolute bottom-0 left-0 right-0 p-2.5 bg-destructive text-destructive-foreground text-xs flex items-center justify-between border-t z-10 text-left transition-colors hover:bg-destructive/90 cursor-pointer group"
+                    className="absolute bottom-2 left-2 right-2 px-3 py-2.5 rounded-cloud-a bg-destructive text-destructive-foreground text-xs flex items-center justify-between z-10 text-left transition-colors hover:bg-destructive/90 cursor-pointer group"
                   >
                     <div className="flex items-center gap-2 overflow-hidden pr-2">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -632,29 +641,17 @@ export default function Sidebar({
                     </div>
                     {validationResult.line && (
                       <span className="text-[10px] font-mono opacity-90 underline group-hover:opacity-100 flex-shrink-0">
-                        Lompat ke Line {validationResult.line} →
+                        Lompat ke baris {validationResult.line} →
                       </span>
                     )}
                   </button>
-                )}
-
-                {validationResult && validationResult.isValid && (
-                  <div className="absolute bottom-0 left-0 right-0 py-1 px-2.5 bg-background/80 backdrop-blur-sm text-muted-foreground text-[11px] flex items-center justify-between border-t z-10">
-                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                      <CheckCircle className="h-3.5 w-3.5" />
-                      <span>GeoJSON Valid (RFC 7946)</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      {validationResult.stats?.featureCount ?? features.length} Fitur
-                    </span>
-                  </div>
                 )}
               </TabsContent>
 
               {/* Table Tab */}
               <TabsContent
                 value="table"
-                className="flex-1 mt-2 rounded-md border border-input overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+                className="flex-1 mt-0 mb-[18px] ml-[22px] mr-[14px] rounded-cloud-b bg-smoke-well/60 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
               >
                 <AttributeTable
                   features={features}
@@ -668,28 +665,75 @@ export default function Sidebar({
           </TooltipProvider>
         </div>
 
-        {/* Right Edge Resizable Handle */}
-        {!isCollapsed && (
-          <div
-            onMouseDown={startResizing}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize left sidebar width"
-            className={`
-              absolute top-0 right-0 w-2 h-full z-50 cursor-col-resize
-              hover:bg-primary/40 active:bg-primary/60 transition-colors
-              flex items-center justify-center group select-none
-              ${isResizing ? 'bg-primary/50' : 'bg-transparent'}
-            `}
+        {/* Collapsed rail */}
+        <div
+          className="cloud-fade absolute left-0 top-0 flex flex-col items-center gap-2 pt-3.5"
+          style={{ width: CLOUD.tabW, opacity: open ? 0 : 1, pointerEvents: open ? 'none' : 'auto' }}
+          aria-hidden={open}
+        >
+          <button
+            type="button"
+            onClick={() => onOpenChange(true)}
+            aria-label="Buka editor"
+            title="Buka editor"
+            className="w-12 h-12 flex items-center justify-center rounded-cloud-sa bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <div
-              className={`
-                w-0.5 h-8 rounded-full bg-muted-foreground/30
-                group-hover:bg-primary group-hover:h-12 transition-all duration-200
-                ${isResizing ? 'bg-primary h-12' : ''}
-              `}
-            />
-          </div>
+            <ChevronRight className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => openTab('json')}
+            aria-label="Buka JSON"
+            title="Buka JSON"
+            className="w-[52px] h-[52px] rounded-cloud-sb bg-smoke-mid/55 text-primary font-mono font-extrabold text-sm hover:bg-smoke-mid transition-colors"
+          >
+            {'{}'}
+          </button>
+          <button
+            type="button"
+            onClick={() => openTab('table')}
+            aria-label="Buka tabel"
+            title="Buka tabel"
+            className="w-[52px] h-[52px] flex items-center justify-center rounded-cloud-sa bg-smoke-mid/55 text-muted-foreground hover:bg-smoke-mid transition-colors"
+          >
+            <Table2 className="h-5 w-5" strokeWidth={1.7} />
+          </button>
+        </div>
+      </section>
+
+      {/* Validation status in the left piece's foot */}
+      <div
+        role="status"
+        className="cloud-move absolute z-30 flex flex-col justify-center px-[18px] font-mono text-xs font-semibold overflow-hidden whitespace-nowrap"
+        style={{
+          bottom: CLOUD.margin,
+          height: CLOUD.footH,
+          left: CLOUD.margin + width - footW,
+          width: footW,
+        }}
+      >
+        {!validationResult ? (
+          <span className="text-muted-foreground font-medium">{open ? 'Belum ada data' : 'Kosong'}</span>
+        ) : validationResult.isValid ? (
+          <>
+            <span className="flex items-center gap-1.5 text-success">
+              <Hexagon className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {open ? 'GeoJSON valid · RFC 7946' : 'Valid'}
+            </span>
+            <span className="text-muted-foreground font-medium">
+              {open ? `${fc} fitur · 0 galat` : `${fc} fitur`}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="flex items-center gap-1.5 text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {open ? 'GeoJSON tidak valid' : 'Galat'}
+            </span>
+            <span className="text-muted-foreground font-medium">
+              {validationResult.line ? `baris ${validationResult.line}` : 'periksa editor'}
+            </span>
+          </>
         )}
       </div>
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Loader2, Command, X } from 'lucide-react';
+import { Sparkles, Loader2, Plus, ChevronRight } from 'lucide-react';
+import { CLOUD } from '@/lib/cloud-shape';
 import { processSpatialIntent, SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 import {
   matchQuickSpatialIntent,
@@ -13,11 +14,16 @@ import { useToast } from '@/hooks/use-toast';
 interface AIAssistantProps {
   onAction: (action: SpatialIntentOutput) => void;
   featureContext?: string;
+  /** Whether the spatial manager is expanded: the pill sits in its notch, else beside its rail. */
+  rightOpen?: boolean;
 }
 
-export default function AIAssistant({ onAction, featureContext }: AIAssistantProps) {
+const QUICK_COMMANDS = ['Fly to Jakarta', 'Buffer all', 'Simplify polygons', 'Switch to satellite'];
+
+export default function AIAssistant({ onAction, featureContext, rightOpen = true }: AIAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [lastQuery, setLastQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastNarrative, setLastNarrative] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,17 +53,14 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || isLoading) return;
+    setLastQuery(query.trim());
 
     // 1. Fast client-side matching (0ms latency, zero quota consumption)
     const quickMatch = matchQuickSpatialIntent(query);
     if (quickMatch) {
       setLastNarrative(quickMatch.narrative);
       onAction(quickMatch);
-      setTimeout(() => {
-        setQuery('');
-        setIsOpen(false);
-        setLastNarrative('');
-      }, 2500);
+      setQuery('');
       return;
     }
 
@@ -66,11 +69,7 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
     if (cached) {
       setLastNarrative(cached.narrative);
       onAction(cached);
-      setTimeout(() => {
-        setQuery('');
-        setIsOpen(false);
-        setLastNarrative('');
-      }, 2500);
+      setQuery('');
       return;
     }
 
@@ -119,12 +118,7 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
         setLastNarrative(spatialAction.narrative);
         onAction(spatialAction);
 
-        // Auto-close after a delay to let user read narrative
-        setTimeout(() => {
-          setQuery('');
-          setIsOpen(false);
-          setLastNarrative('');
-        }, 3000);
+        setQuery('');
       }
     } catch {
       setLastNarrative('Something went wrong. Please try again.');
@@ -138,110 +132,133 @@ export default function AIAssistant({ onAction, featureContext }: AIAssistantPro
     }
   };
 
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="absolute bottom-20 right-3 z-30 flex items-center gap-2.5 px-4 py-2.5 rounded-full glass-pill shadow-2xl hover:scale-105 hover:shadow-accent/40 transition-all border border-white/10 bg-accent/15 group active:scale-95"
-        title="Ask Geovara Intelligence (Ctrl+K)"
-      >
-        <div className="relative">
-          <div className="absolute inset-0 bg-accent/40 blur-md rounded-full animate-pulse group-hover:bg-accent/60" />
-          <Sparkles className="h-5 w-5 text-accent relative z-10 animate-pulse group-hover:scale-110 transition-transform" />
-        </div>
-        <span className="text-xs font-bold tracking-wide text-foreground/90 group-hover:text-foreground">
-          Ask Geovara
-        </span>
-        <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md bg-white/10 border border-white/10">
-          <Command className="h-2.5 w-2.5 text-muted-foreground" />
-          <span className="text-[9px] font-mono font-bold text-muted-foreground italic">K</span>
-        </div>
-      </button>
-    );
-  }
+  const rightW = rightOpen ? CLOUD.rightW : CLOUD.tabW;
+  const pillH = CLOUD.footH - CLOUD.gap;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4 bg-background/40 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] border border-white/10 bg-card/80 backdrop-blur-2xl animate-in slide-in-from-top-8 duration-500">
-        <div className="relative">
-          <form onSubmit={handleSubmit} className="flex items-center p-5 gap-4">
-            <div className="flex-shrink-0">
+    <div
+      role="dialog"
+      aria-label="Asisten Geovara"
+      className="glass-smoke float-shadow cloud-move cloud-spring absolute z-40 overflow-hidden"
+      style={{
+        right: rightOpen ? CLOUD.margin : CLOUD.margin + rightW + CLOUD.gap,
+        bottom: CLOUD.margin,
+        width: isOpen ? 'min(380px, calc(100vw - 24px))' : 170,
+        height: isOpen ? 360 : pillH,
+        borderRadius: isOpen ? 28 : '22px 22px 30px 22px',
+      }}
+    >
+      {/* Collapsed pill */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        aria-expanded={false}
+        tabIndex={isOpen ? -1 : 0}
+        title="Ask Geovara (Ctrl+K)"
+        className="cloud-fade absolute inset-0 flex items-center justify-center gap-2 text-[15px] font-black text-foreground"
+        style={{ opacity: isOpen ? 0 : 1, pointerEvents: isOpen ? 'none' : 'auto' }}
+      >
+        <span className="w-[34px] h-[34px] flex items-center justify-center rounded-cloud-sb bg-ember text-white">
+          <Sparkles className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        </span>
+        Ask Geovara
+      </button>
+
+      {/* Expanded panel */}
+      <div
+        className="cloud-fade absolute inset-0 flex flex-col"
+        style={{
+          opacity: isOpen ? 1 : 0,
+          transform: `translateY(${isOpen ? 0 : 20}px)`,
+          pointerEvents: isOpen ? 'auto' : 'none',
+        }}
+        aria-hidden={!isOpen}
+      >
+        <div className="flex items-center justify-between h-14 pl-[18px] pr-2.5 flex-shrink-0">
+          <span className="flex items-center gap-2 font-black">
+            <Sparkles className="h-[18px] w-[18px] text-ember" strokeWidth={1.8} />
+            Ask Geovara
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            aria-label="Tutup asisten"
+            title="Tutup asisten (Esc)"
+            tabIndex={isOpen ? 0 : -1}
+            className="w-10 h-10 flex items-center justify-center rounded-cloud-sb bg-smoke-mid/55 text-foreground rotate-45 hover:bg-smoke-mid transition-colors"
+          >
+            <Plus className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 px-3.5 py-1.5 text-sm leading-normal">
+          {lastQuery && (
+            <div className="self-end max-w-[85%] px-3.5 py-2.5 rounded-cloud-a bg-primary text-primary-foreground">
+              {lastQuery}
+            </div>
+          )}
+          {(lastNarrative || isLoading) && (
+            <div className="max-w-[90%] px-3.5 py-2.5 rounded-cloud-b bg-smoke-well/75" aria-live="polite">
               {isLoading ? (
-                <div className="relative">
-                  <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse" />
-                  <Loader2 className="h-6 w-6 animate-spin text-accent relative z-10" />
-                </div>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-ember" />
+                  {lastNarrative || 'Berpikir…'}
+                </span>
               ) : (
-                <Sparkles className="h-6 w-6 text-accent" />
+                lastNarrative
               )}
             </div>
-
-            <input
-              ref={inputRef}
-              type="text"
-              className="flex-1 bg-transparent border-none outline-none text-lg font-medium placeholder:text-muted-foreground/50 pr-4 selection:bg-accent/30"
-              placeholder="Ask Geovara (e.g., 'Fly to Jakarta' or 'Buffer these polylines')..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              disabled={isLoading}
-            />
-
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/5 bg-white/5 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-                <Command className="h-3 w-3" />
-                <span>Enter</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-all"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </form>
-
-          {/* AI Feedback/Narrative area */}
-          {(lastNarrative || isLoading) && (
-            <div className="px-5 pb-5 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="pt-4 border-t border-white/5 flex items-start gap-3">
-                <div className="mt-1 p-1 rounded bg-accent/10 border border-accent/20">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                </div>
-                <p className="text-sm text-foreground/80 leading-relaxed italic">
-                  {lastNarrative || (
-                    <span className="flex items-center gap-1">
-                      Thinking<span className="animate-bounce">.</span>
-                      <span className="animate-bounce [animation-delay:0.2s]">.</span>
-                      <span className="animate-bounce [animation-delay:0.4s]">.</span>
-                    </span>
-                  )}
-                </p>
-              </div>
+          )}
+          {!lastQuery && !isLoading && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {QUICK_COMMANDS.map((cmd, i) => (
+                <button
+                  key={cmd}
+                  type="button"
+                  tabIndex={isOpen ? 0 : -1}
+                  onClick={() => {
+                    setQuery(cmd);
+                    inputRef.current?.focus();
+                  }}
+                  className={`text-xs font-bold px-3 py-1.5 bg-smoke-well/70 hover:bg-smoke-well text-foreground transition-colors ${
+                    i % 2 ? 'rounded-cloud-sb' : 'rounded-cloud-sa'
+                  }`}
+                >
+                  {cmd}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Suggestions / Shortcuts Footer */}
-        {!isLoading && !lastNarrative && (
-          <div className="bg-white/5 px-5 py-3 flex flex-wrap gap-2">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold self-center mr-2">
-              Quick Commands:
-            </span>
-            {['Fly to Jakarta', 'Buffer all', 'Simplify polygons', 'Switch to satellite'].map(
-              (cmd) => (
-                <button
-                  key={cmd}
-                  onClick={() => setQuery(cmd)}
-                  className="text-xs px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-accent/10 hover:border-accent/30 transition-all text-muted-foreground hover:text-accent-foreground"
-                >
-                  {cmd}
-                </button>
-              )
-            )}
-          </div>
-        )}
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-2 mx-3 mb-3 h-12 pl-4 pr-1.5 rounded-cloud-a bg-smoke-well/75 text-muted-foreground flex-shrink-0"
+        >
+          <label htmlFor="ask-geovara-input" className="sr-only">
+            Pesan
+          </label>
+          <input
+            id="ask-geovara-input"
+            ref={inputRef}
+            type="text"
+            tabIndex={isOpen ? 0 : -1}
+            className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground"
+            placeholder="Tanyakan tentang data Anda…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            aria-label="Kirim"
+            tabIndex={isOpen ? 0 : -1}
+            disabled={isLoading || !query.trim()}
+            className="w-9 h-9 flex items-center justify-center rounded-cloud-sb bg-primary text-primary-foreground disabled:opacity-50 transition-opacity"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" strokeWidth={1.8} />}
+          </button>
+        </form>
       </div>
     </div>
   );
