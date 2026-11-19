@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Map, MapBrowserEvent } from 'ol';
 import { toLonLat } from 'ol/proj';
 import { ScaleLine } from 'ol/control';
+import { CLOUD } from '@/lib/cloud-shape';
 
 interface StatusBarProps {
   map: Map | null;
@@ -16,6 +17,7 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
   const [coords, setCoords] = useState<string>('0.0000, 0.0000');
   const [altitude, setAltitude] = useState<string>('12,000 km');
   const scaleLineRef = useRef<ScaleLine | null>(null);
+  const scaleTargetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!map) return;
@@ -56,7 +58,8 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
       scaleLineRef.current = new ScaleLine({
         units: 'metric',
         bar: false,
-        minWidth: 100,
+        minWidth: 80,
+        target: scaleTargetRef.current ?? undefined,
       });
       map.addControl(scaleLineRef.current);
     }
@@ -68,65 +71,34 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
   }, [map]);
 
   return (
-    <div className="status-bar fixed flex items-center justify-between z-40 px-3 py-1.5 text-muted-foreground gap-6 text-xs">
-      <div className="flex items-center gap-3">
-        {/* Mode Role Indicator */}
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius)] font-medium text-[10px] bg-primary/15 text-primary border border-primary/30">
-          {is3d ? '3D Globe (Context)' : '2D Map (Precision)'}
-        </span>
-
-        <span className="opacity-30">│</span>
-
-        <span className="flex items-center gap-1.5">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="opacity-60"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-          {coords}
-        </span>
-
-        <span className="opacity-30">│</span>
-
-        {is3d ? (
-          <span className="flex items-center gap-1">
-            <span className="text-[10px] uppercase text-muted-foreground opacity-60">Alt:</span>
-            <span>{altitude}</span>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="opacity-60"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              <line x1="11" y1="8" x2="11" y2="14" />
-              <line x1="8" y1="11" x2="14" y2="11" />
-            </svg>
-            z{zoom}
-          </span>
-        )}
+    <>
+      {/* Scale & coordinates: the separate glass piece in the left sidebar's notch */}
+      <div
+        className="glass-smoke float-shadow cloud-move absolute z-30 flex flex-col justify-center gap-1.5 px-4 overflow-hidden whitespace-nowrap font-mono text-[11px] font-medium text-muted-foreground"
+        style={{
+          left: CLOUD.margin,
+          bottom: CLOUD.margin,
+          height: CLOUD.footH - CLOUD.gap,
+          width: 'var(--slot-w, 0px)',
+          opacity: 'var(--slot-o, 0)',
+          borderRadius: '22px 22px 22px 30px',
+        }}
+      >
+        <div ref={scaleTargetRef} className="geovara-scale" />
+        <span>Z {Math.round(zoom)}{is3d ? ` · alt ${altitude}` : ''}</span>
+        <span>{coords}</span>
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className="text-[10px] uppercase tracking-wider opacity-60 font-mono">
-          {is3d ? 'Cesium WGS84' : projection}
+      {/* Mode pill centred in the map window */}
+      <div
+        className="status-bar cloud-move absolute z-30 h-11 w-[250px] -translate-x-1/2 flex items-center justify-center gap-3 text-muted-foreground"
+        style={{ bottom: 30, left: 'calc((var(--map-l, 0px) + 100vw - var(--map-r, 0px)) / 2)' }}
+      >
+        <span className="px-2.5 py-0.5 rounded-cloud-sb bg-primary/10 text-primary font-semibold">
+          {is3d ? '3D · globe' : '2D · presisi'}
         </span>
+        <span>{is3d ? 'WGS84' : projection}</span>
       </div>
-    </div>
+    </>
   );
 }

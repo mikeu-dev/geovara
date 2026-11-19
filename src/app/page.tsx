@@ -24,6 +24,8 @@ import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { GisService } from '@/lib/spatial';
 import { Feature as GeoJSONFeature } from 'geojson';
 import AIAssistant from '@/components/AIAssistant';
+import CloudShell from '@/components/CloudShell';
+import { CLOUD, footWidth } from '@/lib/cloud-shape';
 import { SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 
 export type DrawType =
@@ -71,6 +73,13 @@ export default function Home() {
   const [is3d, setIs3d] = useState(false);
   const [showGraticule, setShowGraticule] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  // Both cloud pieces start expanded on wide screens and as rails on narrow ones
+  const [leftOpen, setLeftOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1100
+  );
+  const [rightOpen, setRightOpen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1100
+  );
   const { toast } = useToast();
 
   useEffect(() => {
@@ -544,83 +553,104 @@ export default function Home() {
 
   if (!isClient) return null;
 
+  const lw = leftOpen ? CLOUD.leftW : CLOUD.tabW;
+  const rw = rightOpen ? CLOUD.rightW : CLOUD.tabW;
+  const cloudVars = {
+    '--map-l': `${CLOUD.margin + lw + CLOUD.gap}px`,
+    '--map-r': `${CLOUD.margin + rw + CLOUD.gap}px`,
+    '--cloud-top': `${CLOUD.margin + CLOUD.headerH + CLOUD.gap}px`,
+    '--cloud-bottom': `${CLOUD.margin}px`,
+    // Scale/coordinate slot fills the notch left of the editor's foot
+    '--slot-w': `${leftOpen ? lw - footWidth(lw) - CLOUD.gap : 0}px`,
+    '--slot-o': leftOpen ? 1 : 0,
+  } as React.CSSProperties;
+
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground selection:bg-accent/20">
-      <Header theme={theme} onToggleTheme={handleToggleTheme} />
-      <main className="flex flex-1 min-h-0 w-full overflow-hidden relative">
-        <Sidebar
-          theme={theme}
-          geojsonString={geojsonString}
-          onGeojsonChange={handleGeojsonChange}
-          featuresCount={features.length}
-          onClear={handleClear}
-          undo={handleUndo}
-          redo={handleRedo}
-          canUndo={canUndo}
-          canRedo={canRedo}
+    <div
+      className="relative h-svh w-screen overflow-hidden bg-background text-foreground selection:bg-primary/20"
+      style={cloudVars}
+    >
+      {/* Map fills the whole screen; the cloud pieces float over it */}
+      <main className="absolute inset-0">
+        {isParsing && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-500">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 font-mono text-sm font-semibold text-muted-foreground animate-pulse">
+              Memproses data geospasial…
+            </p>
+          </div>
+        )}
+        <MapComponent
           features={features}
-          onDeleteFeature={handleDeleteFeature}
-          onZoomToFeature={handleZoomTo}
+          setFeatures={setFeatures}
+          drawType={drawType}
+          setDrawType={setDrawType}
+          selectedFeature={selectedFeature}
           onFeatureSelect={handleFeatureSelect}
+          onDeleteFeature={handleDeleteFeature}
           onFeaturePropertyChange={handleFeaturePropertyChange}
-        />
-
-        <div className="flex-grow relative h-full min-w-0">
-          {isParsing && (
-            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-500">
-              <div className="relative">
-                <div className="absolute inset-0 bg-accent/20 blur-3xl animate-pulse rounded-full" />
-                <Loader2 className="h-12 w-12 animate-spin text-accent relative z-10" />
-              </div>
-              <p className="mt-4 text-sm font-semibold tracking-widest uppercase text-muted-foreground animate-pulse">
-                Processing Geospatial Data
-              </p>
-            </div>
-          )}
-          <MapComponent
-            features={features}
-            setFeatures={setFeatures}
-            drawType={drawType}
-            setDrawType={setDrawType}
-            selectedFeature={selectedFeature}
-            onFeatureSelect={handleFeatureSelect}
-            onDeleteFeature={handleDeleteFeature}
-            onFeaturePropertyChange={handleFeaturePropertyChange}
-            projection={projection}
-            onProjectionChange={setProjection}
-            zoomToId={zoomToId}
-            vectorOpacity={vectorOpacity}
-            vectorVisible={vectorVisible}
-            basemapOpacity={basemapOpacity}
-            is3d={is3d}
-            onToggle3d={handleToggle3d}
-            showGraticule={showGraticule}
-          />
-          <AIAssistant
-            onAction={handleAIAction}
-            featureContext={
-              selectedFeature ? JSON.stringify(format.writeFeatureObject(selectedFeature)) : undefined
-            }
-          />
-        </div>
-
-        <RightSidebar
-          features={features}
-          onGeojsonChange={handleGeojsonChange}
-          onDeleteFeature={handleDeleteFeature}
-          onZoomToFeature={handleZoomTo}
-          onFeatureSelect={handleFeatureSelect}
-          onHeavyParseChange={setIsParsing}
+          projection={projection}
+          onProjectionChange={setProjection}
+          zoomToId={zoomToId}
           vectorOpacity={vectorOpacity}
-          onVectorOpacityChange={setVectorOpacity}
           vectorVisible={vectorVisible}
-          onVectorVisibleChange={setVectorVisible}
           basemapOpacity={basemapOpacity}
-          onBasemapOpacityChange={setBasemapOpacity}
+          is3d={is3d}
+          onToggle3d={handleToggle3d}
           showGraticule={showGraticule}
-          onToggleGraticule={handleToggleGraticule}
         />
       </main>
+
+      <CloudShell leftWidth={lw} rightWidth={rw} />
+
+      <Header theme={theme} onToggleTheme={handleToggleTheme} is3d={is3d} onToggle3d={handleToggle3d} />
+
+      <Sidebar
+        theme={theme}
+        open={leftOpen}
+        onOpenChange={setLeftOpen}
+        geojsonString={geojsonString}
+        onGeojsonChange={handleGeojsonChange}
+        featuresCount={features.length}
+        onClear={handleClear}
+        undo={handleUndo}
+        redo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        features={features}
+        onDeleteFeature={handleDeleteFeature}
+        onZoomToFeature={handleZoomTo}
+        onFeatureSelect={handleFeatureSelect}
+        onFeaturePropertyChange={handleFeaturePropertyChange}
+      />
+
+      <RightSidebar
+        open={rightOpen}
+        onOpenChange={setRightOpen}
+        selectedFeature={selectedFeature}
+        features={features}
+        onGeojsonChange={handleGeojsonChange}
+        onDeleteFeature={handleDeleteFeature}
+        onZoomToFeature={handleZoomTo}
+        onFeatureSelect={handleFeatureSelect}
+        onHeavyParseChange={setIsParsing}
+        vectorOpacity={vectorOpacity}
+        onVectorOpacityChange={setVectorOpacity}
+        vectorVisible={vectorVisible}
+        onVectorVisibleChange={setVectorVisible}
+        basemapOpacity={basemapOpacity}
+        onBasemapOpacityChange={setBasemapOpacity}
+        showGraticule={showGraticule}
+        onToggleGraticule={handleToggleGraticule}
+      />
+
+      <AIAssistant
+        rightOpen={rightOpen}
+        onAction={handleAIAction}
+        featureContext={
+          selectedFeature ? JSON.stringify(format.writeFeatureObject(selectedFeature)) : undefined
+        }
+      />
     </div>
   );
 }

@@ -1,115 +1,156 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sun, Moon, HelpCircle } from 'lucide-react';
+import { Sun, Moon, HelpCircle, Github } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import HelpModal from './HelpContent';
+import { CLOUD } from '@/lib/cloud-shape';
 
 interface HeaderProps {
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
+  is3d?: boolean;
+  onToggle3d?: () => void;
 }
 
-export default function Header({ theme = 'light', onToggleTheme }: HeaderProps) {
+const { margin: M, tabW: TW, headerH: HH, stepH: TH } = CLOUD;
+
+export function GeovaraMark({ size = 40 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" aria-hidden="true">
+      <path
+        d="M5 8l8-5 8 5-3 12H8z"
+        className="fill-primary/10 stroke-primary"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="5" cy="8" r="2.2" className="fill-primary" />
+      <circle cx="13" cy="3" r="2.2" className="fill-ember" />
+      <circle cx="21" cy="8" r="2.2" className="fill-primary" />
+    </svg>
+  );
+}
+
+const stepButton =
+  'w-[30px] h-[30px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-smoke-mid/55 transition-colors';
+
+/**
+ * Header content. Sits on top of the CloudShell: the logo fills the left
+ * sidebar's tab, the wordmark and 2D/3D switch live in the header piece, and
+ * help / theme / GitHub sit in the header's stepped right end.
+ */
+export default function Header({ theme = 'light', onToggleTheme, is3d = false, onToggle3d }: HeaderProps) {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   return (
-    <header className="h-9 px-3 flex-shrink-0 border-b border-border bg-card/90 backdrop-blur-md flex items-center justify-between z-30 select-none">
-      {/* Left: Brand Header */}
-      <div className="flex items-center gap-2">
-        <h1
-          className="text-base sm:text-lg font-bold tracking-tight"
-          style={{
-            background: 'linear-gradient(135deg, hsl(173, 58%, 39%), hsl(210, 70%, 50%))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          Geovara
-        </h1>
-      </div>
+    <header className="contents select-none">
+      <a
+        href="/"
+        aria-label="Geovara, beranda"
+        className="absolute z-30 flex items-center justify-center rounded-cloud-a"
+        style={{ left: M, top: M, width: TW, height: HH }}
+      >
+        <GeovaraMark />
+      </a>
+      <h1
+        className="absolute z-30 flex items-center text-[22px] font-black tracking-tight text-foreground"
+        style={{ left: M + TW + 32, top: M, height: HH }}
+      >
+        Geovara
+      </h1>
 
-      {/* Right: Help Modal Trigger, Theme Toggle, Copyright, & GitHub Link */}
-      <div className="flex items-center gap-2 sm:gap-2.5 text-xs text-muted-foreground">
-        <TooltipProvider>
+      {onToggle3d && (
+        <div
+          role="group"
+          aria-label="Mode peta"
+          className="absolute z-30 hidden sm:flex h-12 p-1 rounded-cloud-b bg-smoke-mid/55"
+          style={{ top: 26, right: M + TW + 28 }}
+        >
+          <span
+            aria-hidden="true"
+            className="cloud-move cloud-spring absolute top-1 bottom-1 w-16 bg-primary shadow-[0_4px_10px_rgb(var(--shadow-ink)/0.18)]"
+            style={{ left: is3d ? 68 : 4, borderRadius: is3d ? '8px 16px 8px 16px' : '16px 8px 16px 8px' }}
+          />
+          {(['2D', '3D'] as const).map((label) => {
+            const on = (label === '3D') === is3d;
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={on}
+                onClick={() => !on && onToggle3d()}
+                className={`relative w-16 text-[15px] font-extrabold transition-colors duration-300 ${
+                  on ? 'text-primary-foreground' : 'text-foreground'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <TooltipProvider>
+        <div
+          className="absolute z-30 flex items-center justify-center gap-[2px]"
+          style={{ right: M, top: M, width: TW, height: TH }}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
                 onClick={() => setIsHelpOpen(true)}
-                className="flex items-center gap-1 px-2 h-7 rounded-[var(--radius)] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-xs font-medium"
-                aria-label="Buka Panduan & Dokumentasi"
+                className={`${stepButton} rounded-cloud-sa`}
+                aria-label="Bantuan & dokumentasi"
               >
-                <HelpCircle className="h-3.5 w-3.5 text-primary" />
-                <span className="hidden sm:inline">Help</span>
+                <HelpCircle className="h-[18px] w-[18px]" strokeWidth={1.8} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p className="text-xs">Panduan & Dokumentasi</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
 
-        <div className="h-3 w-[1px] bg-border" aria-hidden="true" />
-
-        {onToggleTheme && (
-          <TooltipProvider>
+          {onToggleTheme && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   onClick={onToggleTheme}
-                  className="w-7 h-7 rounded-[var(--radius)] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  aria-label={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                  className={`${stepButton} rounded-cloud-sb`}
+                  aria-label={theme === 'light' ? 'Mode gelap' : 'Mode terang'}
                 >
                   {theme === 'light' ? (
-                    <Sun className="h-3.5 w-3.5" />
+                    <Moon className="h-[18px] w-[18px]" strokeWidth={1.8} />
                   ) : (
-                    <Moon className="h-3.5 w-3.5" />
+                    <Sun className="h-[18px] w-[18px]" strokeWidth={1.8} />
                   )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</p>
+                <p className="text-xs">{theme === 'light' ? 'Mode gelap' : 'Mode terang'}</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        )}
+          )}
 
-        <div className="h-3 w-[1px] bg-border" aria-hidden="true" />
-
-        <a
-          href="https://mikeudev.my.id"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-foreground transition-colors font-medium text-[11px] sm:text-xs"
-        >
-          © {new Date().getFullYear()} mikeudev.my.id
-        </a>
-
-        <div className="h-3 w-[1px] bg-border" aria-hidden="true" />
-
-        <a
-          href="https://github.com/mikeu-dev/geovara"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:text-foreground transition-colors p-1 rounded hover:bg-secondary flex items-center justify-center"
-          title="GitHub Repository: mikeu-dev/geovara"
-          aria-label="GitHub Repository: mikeu-dev/geovara"
-        >
-          <svg
-            className="h-3.5 w-3.5 fill-current"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-            />
-          </svg>
-        </a>
-      </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href="https://github.com/mikeu-dev/geovara"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${stepButton} rounded-cloud-sa`}
+                aria-label="GitHub: mikeu-dev/geovara"
+              >
+                <Github className="h-[18px] w-[18px]" strokeWidth={1.8} />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">© {new Date().getFullYear()} mikeudev.my.id · GitHub</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
 
       <HelpModal open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </header>

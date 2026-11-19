@@ -78,6 +78,13 @@ export default function MapComponent({
   const [snappingEnabled, setSnappingEnabled] = useState(true);
   const [activeBasemap, setActiveBasemap] = useState<string>('osm');
   const [isSpatialToolsOpen, setIsSpatialToolsOpen] = useState(false);
+
+  // Quick-operation buttons in the spatial manager open the toolkit
+  useEffect(() => {
+    const open = () => setIsSpatialToolsOpen(true);
+    window.addEventListener('geovara:spatial-tools', open);
+    return () => window.removeEventListener('geovara:spatial-tools', open);
+  }, []);
   const [isUsabilityLabOpen, setIsUsabilityLabOpen] = useState(false);
   const [experimentCondition, setExperimentCondition] = useState<{
     backgroundColor?: string;
@@ -330,7 +337,11 @@ export default function MapComponent({
       <CursorGuide drawType={drawType} snappingEnabled={snappingEnabled} />
 
       <LocationSearch map={map} onAddFeature={handleAddFeature} />
-      <div className="absolute top-[0.75rem] right-[0.75rem] flex flex-col gap-3 z-30 items-end">
+      {/* Draw rail floats inside the map window, beside the spatial manager */}
+      <div
+        className="cloud-move absolute flex flex-col gap-3 z-30 items-end"
+        style={{ top: 114, right: 'calc(var(--map-r, 0px) + 16px)' }}
+      >
         <Compass map={map} />
         <DrawingTools
           map={map}
@@ -360,7 +371,10 @@ export default function MapComponent({
         />
       </div>
 
-      <div className="absolute bottom-12 right-[0.75rem] flex flex-col gap-2 items-end z-30">
+      <div
+        className="cloud-move absolute flex flex-col gap-2 items-end z-30"
+        style={{ bottom: 92, right: 'calc(var(--map-r, 0px) + 16px)' }}
+      >
         <MeasurementController
           map={map}
           activeType={drawType as 'MeasureArea' | 'MeasureDistance' | null}

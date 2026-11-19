@@ -5,54 +5,80 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Geovara "smoke & ember" tokens (cloud shell design) ─── */
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 15% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
-    --primary: 173 58% 39%;
+    --background: 40 6% 84%; /* #D9D7D2 asap gelap — app ground */
+    --foreground: 220 7% 16%; /* #25272B tinta */
+    --card: 45 11% 94%; /* #F1F0ED asap terang */
+    --card-foreground: 220 7% 16%;
+    --popover: 45 11% 94%;
+    --popover-foreground: 220 7% 16%;
+    --primary: 216 38% 39%; /* #3E5C8A biru slate */
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 93%;
-    --secondary-foreground: 220 15% 15%;
-    --muted: 220 14% 93%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 173 58% 39%;
+    --secondary: 43 9% 87%;
+    --secondary-foreground: 220 7% 16%;
+    --muted: 43 9% 87%;
+    --muted-foreground: 222 5% 38%; /* #5B5E65 abu teks */
+    --accent: 216 38% 39%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --ember: 22 68% 54%; /* #D9733A bara — icons, lines, fills only */
+    --ember-ink: 21 69% 38%; /* #A44D1E — text-safe ember */
+    --success: 147 40% 30%; /* #2E6B4A */
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 173 58% 39%;
-    --radius: 4px;
-    --sidebar-bg: 220 20% 97%;
-    --glass-bg: 0 0% 100% / 0.72;
-    --glass-border: 0 0% 100% / 0.2;
+    --border: 40 6% 80%;
+    --input: 40 6% 80%;
+    --ring: 216 38% 39%;
+    --radius: 12px;
+    --sidebar-bg: 45 11% 94%;
+    --glass-bg: 45 11% 93% / 0.88;
+    --glass-border: 0 0% 100% / 0.8;
+
+    /* RGB triples for translucent smoke layers */
+    --smoke-light: 241 240 237;
+    --glass: 239 238 235;
+    --smoke-mid: 214 212 207;
+    --glass-edge: 255 255 255;
+    --well: 255 255 255;
+    --shadow-ink: 30 32 38;
+
+    /* Motion */
+    --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+    --ease-morph: cubic-bezier(0.65, 0, 0.25, 1);
   }
   .dark {
-    --background: 224 47% 8%;
-    --foreground: 210 40% 96%;
-    --card: 224 47% 11%;
-    --card-foreground: 210 40% 96%;
-    --popover: 224 47% 11%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 173 58% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 173 58% 45%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 63% 31%;
+    --background: 225 6% 12%;
+    --foreground: 40 10% 92%;
+    --card: 225 6% 17%;
+    --card-foreground: 40 10% 92%;
+    --popover: 225 6% 17%;
+    --popover-foreground: 40 10% 92%;
+    --primary: 216 45% 66%;
+    --primary-foreground: 220 7% 12%;
+    --secondary: 225 5% 22%;
+    --secondary-foreground: 40 10% 92%;
+    --muted: 225 5% 22%;
+    --muted-foreground: 225 5% 68%;
+    --accent: 216 45% 66%;
+    --accent-foreground: 220 7% 12%;
+    --ember: 22 72% 60%;
+    --ember-ink: 22 72% 66%;
+    --success: 147 40% 60%;
+    --destructive: 0 63% 40%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
-    --ring: 173 58% 45%;
-    --sidebar-bg: 224 47% 8%;
-    --glass-bg: 224 47% 11% / 0.72;
-    --glass-border: 0 0% 100% / 0.08;
+    --border: 225 5% 26%;
+    --input: 225 5% 26%;
+    --ring: 216 45% 66%;
+    --sidebar-bg: 225 6% 17%;
+    --glass-bg: 225 6% 17% / 0.88;
+    --glass-border: 0 0% 100% / 0.12;
+
+    --smoke-light: 42 43 47;
+    --glass: 38 40 44;
+    --smoke-mid: 72 74 80;
+    --glass-edge: 120 122 128;
+    --well: 22 23 26;
+    --shadow-ink: 0 0 0;
   }
 }
 
@@ -69,7 +95,8 @@
     @apply bg-background text-foreground;
     height: 100svh;
     font-family:
-      'Inter',
+      'Nunito',
+      ui-rounded,
       system-ui,
       -apple-system,
       sans-serif;
@@ -77,71 +104,73 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ─── OpenLayers Controls ─── */
+  /* ─── OpenLayers Controls (sit inside the map window between cloud pieces) ─── */
   .ol-zoom {
-    top: 0.75rem !important;
-    left: 0.75rem !important;
+    top: calc(var(--cloud-top, 0.75rem) + 16px) !important;
+    left: calc(var(--map-l, 0.75rem) + 16px) !important;
     right: auto !important;
     bottom: auto !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 2px !important;
+    gap: 4px !important;
     z-index: 35 !important;
+    transition: left 0.62s var(--ease-morph);
   }
   .ol-control {
     background-color: transparent;
   }
   .ol-control button {
-    background-color: hsl(var(--glass-bg));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: hsl(var(--card-foreground));
-    border-radius: var(--radius);
-    border: 1px solid hsl(var(--glass-border));
-    width: 2rem;
-    height: 2rem;
-    font-size: 1rem;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgb(var(--glass) / 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: hsl(var(--foreground));
+    border-radius: 16px 8px 16px 8px;
+    border: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
     box-shadow:
-      0 1px 3px 0 rgb(0 0 0 / 0.08),
-      0 1px 2px -1px rgb(0 0 0 / 0.08);
+      0 6px 14px rgb(var(--shadow-ink) / 0.14),
+      inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
   }
-  .ol-control button:hover {
-    background-color: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
-    box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.12),
-      0 2px 4px -2px rgb(0 0 0 / 0.08);
-    transform: translateY(-1px);
+  .ol-zoom .ol-zoom-out {
+    border-radius: 8px 16px 8px 16px;
+  }
+  .ol-control button:hover,
+  .ol-control button:focus-visible {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
   }
   .ol-attribution {
     @apply text-[10px] text-foreground/70;
-    background: hsl(var(--glass-bg));
+    background: rgb(var(--glass) / 0.88);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    bottom: 0.5rem !important;
-    right: 0.5rem !important;
-    border: 1px solid hsl(var(--glass-border));
-    border-radius: var(--radius);
-    padding: 2px 6px;
+    bottom: calc(var(--cloud-bottom, 0.5rem) + 8px) !important;
+    right: calc(var(--map-r, 0.5rem) + 8px) !important;
+    border: 0;
+    border-radius: 8px 16px 8px 16px;
+    padding: 2px 8px;
     z-index: 35 !important;
+    transition: right 0.62s var(--ease-morph);
   }
-  .ol-scale-line {
-    background: hsl(var(--glass-bg));
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid hsl(var(--glass-border));
-    border-radius: var(--radius);
-    bottom: 1rem !important;
-    left: 1rem !important;
-    padding: 2px;
-    z-index: 35 !important;
+  /* Scale line is rendered into the bottom-left scale slot */
+  .geovara-scale .ol-scale-line {
+    position: static;
+    background: transparent;
+    padding: 0;
   }
-  .ol-scale-line-inner {
-    border: 1px solid hsl(var(--foreground));
+  .geovara-scale .ol-scale-line-inner {
+    border: 1.5px solid hsl(var(--foreground));
     border-top: none;
-    color: hsl(var(--foreground));
-    font-size: 9px;
+    color: hsl(var(--muted-foreground));
+    font: 500 11px 'Red Hat Mono', ui-monospace, monospace;
+    margin: 0;
+    padding-bottom: 1px;
   }
 
   /* ─── Cesium 3D Viewport & Stacking Context ─── */
@@ -171,7 +200,7 @@
     pointer-events: auto !important;
   }
 
-  /* ─── Drawing Tools Panel (Glassmorphism) ─── */
+  /* ─── Drawing Tools Rail (smoked glass, alternating diagonal radii) ─── */
   .drawing-tools {
     position: relative;
     z-index: 30;
@@ -179,70 +208,72 @@
     flex-direction: column;
     gap: 0.5rem;
     padding: 0;
-    border-radius: var(--radius);
     background-color: transparent;
   }
 
   .drawing-tools .drawing-controls {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.3rem;
-    border-radius: calc(var(--radius) + 2px);
-    background: hsl(var(--glass-bg));
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsl(var(--glass-border));
+    gap: 2px;
+    padding: 5px;
+    border-radius: 26px 14px 26px 14px;
+    background: rgb(var(--glass) / 0.88);
+    backdrop-filter: blur(16px) saturate(1.05);
+    -webkit-backdrop-filter: blur(16px) saturate(1.05);
     box-shadow:
-      0 4px 6px -1px rgb(0 0 0 / 0.08),
-      0 2px 4px -2px rgb(0 0 0 / 0.06),
-      0 0 0 1px rgb(0 0 0 / 0.02);
+      0 6px 14px rgb(var(--shadow-ink) / 0.14),
+      inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
   }
 
   .drawing-tools button {
-    width: 2rem !important;
-    height: 2rem !important;
-    min-width: 2rem !important;
-    min-height: 2rem !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
     padding: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    color: hsl(var(--card-foreground));
+    color: hsl(var(--muted-foreground));
     background-color: transparent;
-    border-radius: var(--radius);
-    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 16px 8px 16px 8px;
+    transition:
+      background-color 0.3s var(--ease-spring),
+      color 0.3s ease,
+      border-radius 0.4s var(--ease-spring);
+  }
+  .drawing-tools button:nth-of-type(even) {
+    border-radius: 8px 16px 8px 16px;
   }
 
   .drawing-tools button:hover {
-    background-color: hsl(var(--secondary));
-    color: hsl(var(--secondary-foreground));
-    transform: scale(1.05);
+    background-color: rgb(var(--smoke-mid) / 0.55);
+    color: hsl(var(--foreground));
   }
 
   .drawing-tools button[data-state='on'] {
-    background-color: hsl(var(--accent));
-    color: hsl(var(--accent-foreground));
-    box-shadow: 0 0 0 2px hsl(var(--accent) / 0.3);
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 10px rgb(var(--shadow-ink) / 0.2);
   }
 
   .drawing-tools button svg {
-    width: 1rem !important;
-    height: 1rem !important;
-    min-width: 1rem !important;
-    min-height: 1rem !important;
-    max-width: 1rem !important;
-    max-height: 1rem !important;
-    stroke-width: 2 !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    max-width: 18px !important;
+    max-height: 18px !important;
+    stroke-width: 1.8 !important;
     flex-shrink: 0 !important;
   }
 
   .basemap-switcher.ol-control {
-    background: hsl(var(--glass-bg));
+    background: rgb(var(--glass) / 0.88);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-radius: calc(var(--radius) + 2px);
-    border: 1px solid hsl(var(--glass-border));
+    border-radius: 24px 12px 24px 12px;
+    border: 0;
     position: static;
     width: fit-content;
     box-shadow:
@@ -256,9 +287,10 @@
     background: hsl(var(--glass-bg));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-radius: var(--radius);
+    border-radius: 16px 8px 16px 8px;
     color: hsl(var(--foreground));
-    padding: 6px 10px;
+    padding: 6px 12px;
+    font-family: 'Red Hat Mono', ui-monospace, monospace;
     white-space: nowrap;
     font-size: 12px;
     font-weight: 500;
@@ -332,28 +364,80 @@
     animation: slideInLeft 0.35s ease-out forwards;
   }
 
-  /* ─── Status Bar (Floating Glass Panel) ─── */
+  /* ─── Cloud shell: smoked glass, morphing pieces, motion ─── */
+  .glass-smoke {
+    background: rgb(var(--glass) / 0.88);
+    -webkit-backdrop-filter: blur(16px) saturate(1.05);
+    backdrop-filter: blur(16px) saturate(1.05);
+  }
+  .float-shadow {
+    box-shadow:
+      0 6px 14px rgb(var(--shadow-ink) / 0.14),
+      inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
+  }
+  .cloud-shadow {
+    filter: drop-shadow(0 8px 18px rgb(var(--shadow-ink) / 0.18))
+      drop-shadow(0 1px 2px rgb(var(--shadow-ink) / 0.14));
+  }
+  .cloud-morph {
+    transition: d 0.75s var(--ease-morph);
+  }
+  .cloud-clip {
+    transition: clip-path 0.75s var(--ease-morph);
+  }
+  .cloud-move {
+    transition-property: left, right, top, bottom, width, height, border-radius, transform, opacity,
+      background-color, color;
+    transition-duration: 0.62s;
+    transition-timing-function: var(--ease-morph);
+  }
+  .cloud-spring {
+    transition-timing-function: var(--ease-spring);
+  }
+  .cloud-fade {
+    transition:
+      opacity 0.26s ease,
+      transform 0.4s var(--ease-spring);
+  }
+  /* Basemap is desaturated so the smoke stays calm; vector data keeps full colour */
+  .geovara-basemap {
+    filter: saturate(0.62) contrast(0.96) brightness(1.02);
+  }
+  .dark .geovara-basemap {
+    filter: saturate(0.55) brightness(0.8);
+  }
+  @keyframes cloud-pop {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.92);
+    }
+  }
+  .animate-cloud-pop {
+    transform-origin: 50% 100%;
+    animation: cloud-pop 0.5s var(--ease-spring) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cloud-morph,
+    .cloud-clip,
+    .cloud-move,
+    .cloud-fade,
+    .animate-cloud-pop {
+      transition-duration: 0.01s !important;
+      animation: none !important;
+    }
+  }
+
+  /* ─── Status Pill (floating over the map window) ─── */
   .status-bar {
-    width: auto;
-    min-width: 320px;
-    max-width: fit-content;
-    left: 50% !important;
-    transform: translateX(-50%);
-    bottom: 0.75rem !important;
-    padding: 0.35rem 0.85rem !important;
-    border-radius: calc(var(--radius) + 2px) !important;
-    background: hsl(var(--glass-bg));
+    border-radius: 24px 12px 24px 12px;
+    background: rgb(var(--glass) / 0.88);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsl(var(--glass-border));
     box-shadow:
-      0 10px 15px -3px rgb(0 0 0 / 0.1),
-      0 4px 6px -4px rgb(0 0 0 / 0.1),
-      0 0 0 1px rgb(0 0 0 / 0.02);
-    font-size: 11px;
-    font-weight: 500;
+      0 6px 14px rgb(var(--shadow-ink) / 0.14),
+      inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
+    font: 500 12px 'Red Hat Mono', ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
   }
 
   /* ─── Keyboard Shortcut Badges ─── */
@@ -361,7 +445,7 @@
     display: inline-block;
     padding: 1px 5px;
     font-size: 10px;
-    font-family: 'Inter', monospace;
+    font-family: 'Red Hat Mono', ui-monospace, monospace;
     font-weight: 600;
     line-height: 1.4;
     color: hsl(var(--muted-foreground));

@@ -31,6 +31,21 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
   const [isFocused, setIsFocused] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses the search box (unless the user is already typing somewhere)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+      if (t?.closest('.monaco-editor')) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const { toast } = useToast();
 
   // Close dropdown when clicking outside
@@ -150,20 +165,25 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
   return (
     <div
       ref={containerRef}
-      className="absolute top-[0.75rem] left-[3.25rem] z-40 w-[calc(100vw-7.5rem)] sm:w-80 max-w-80"
+      className="cloud-move cloud-spring absolute top-[26px] z-40 -translate-x-1/2"
+      style={{
+        left: 'calc((var(--map-l, 0px) + 100vw - var(--map-r, 0px)) / 2)',
+        width: 'min(380px, calc(100vw - 268px))',
+      }}
     >
-      <div
+      <label
         className={`
-        flex items-center gap-2 px-3 py-2 rounded-[calc(var(--radius)+2px)]
-        bg-[hsl(var(--glass-bg))] backdrop-blur-md border border-[hsl(var(--glass-border))]
-        transition-all duration-200
-        ${isFocused ? 'ring-2 ring-primary/40 shadow-lg' : 'shadow-sm'}
+        flex items-center gap-2.5 h-12 pl-4 pr-3 rounded-cloud-a bg-smoke-mid/55 text-muted-foreground
+        transition-shadow duration-200
+        ${isFocused ? 'ring-2 ring-primary/50' : ''}
       `}
       >
-        <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <Search className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.8} />
+        <span className="sr-only">Cari lokasi</span>
         <input
-          type="text"
-          placeholder="Search location (e.g. Jakarta)..."
+          ref={inputRef}
+          type="search"
+          placeholder="Cari lokasi atau fitur…"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
@@ -174,21 +194,28 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
               (e.target as HTMLInputElement).blur();
             }
           }}
-          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+          className="flex-1 min-w-0 bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground outline-none [&::-webkit-search-cancel-button]:hidden"
         />
         {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         {query && !isLoading && (
           <button
+            type="button"
             onClick={handleClear}
+            aria-label="Hapus pencarian"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         )}
-      </div>
+        {!query && !isLoading && (
+          <kbd className="hidden sm:inline font-mono text-[11px] font-semibold px-2 py-0.5 rounded-cloud-sb bg-smoke-well/70 text-foreground">
+            /
+          </kbd>
+        )}
+      </label>
 
       {isOpen && results.length > 0 && (
-        <div className="mt-1.5 rounded-[calc(var(--radius)+2px)] overflow-hidden bg-[hsl(var(--glass-bg))] backdrop-blur-md border border-[hsl(var(--glass-border))] shadow-xl animate-fade-in-up">
+        <div className="mt-2 rounded-cloud-b overflow-hidden glass-smoke float-shadow animate-fade-in-up">
           {results.map((result) => (
             <div
               key={result.place_id}

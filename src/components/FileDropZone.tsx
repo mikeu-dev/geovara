@@ -127,12 +127,12 @@ export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
-        relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer
-        transition-all duration-200 ease-out
+        relative flex items-center gap-3 p-3.5 text-left cursor-pointer rounded-cloud-b
+        border-[1.5px] border-dashed transition-all duration-200 ease-out
         ${
           isDragging
-            ? 'border-accent bg-accent/10 scale-[1.02]'
-            : 'border-border hover:border-muted-foreground/40 hover:bg-muted/50'
+            ? 'border-primary bg-primary/10 scale-[1.02]'
+            : 'border-foreground/20 bg-smoke-well/50 hover:bg-smoke-well/80 hover:border-foreground/35'
         }
       `}
     >
@@ -141,15 +141,13 @@ export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
         accept=".geojson,.json,.kml,.topojson,.csv,.wkt,.zip,.shp"
         onChange={handleFileInput}
         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-        aria-label="Upload geographic dataset"
+        aria-label="Impor data geografis"
       />
-      <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-        <FileUp className="w-5 h-5 text-muted-foreground" />
-        <div className="text-xs font-medium text-foreground">
-          Tarik & letakkan file di sini atau klik untuk memilih
-        </div>
-        <div className="text-[10px] text-muted-foreground">
-          Mendukung GeoJSON, CSV, WKT, TopoJSON, KML, dan Shapefile (.zip, .shp)
+      <FileUp className="w-[22px] h-[22px] flex-shrink-0 text-muted-foreground pointer-events-none" strokeWidth={1.8} />
+      <div className="flex flex-col gap-0.5 pointer-events-none min-w-0">
+        <div className="text-sm font-extrabold text-foreground">Impor data</div>
+        <div className="font-mono text-[11px] font-medium text-muted-foreground truncate">
+          GeoJSON · SHP · KML · CSV · WKT · TopoJSON
         </div>
       </div>
     </div>

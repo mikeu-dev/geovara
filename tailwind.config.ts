@@ -12,18 +12,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
-        code: [
-          'Menlo',
-          'Monaco',
-          'Lucida Console',
-          'Liberation Mono',
-          'DejaVu Sans Mono',
-          'Bitstream Vera Sans Mono',
-          'Courier New',
-          'monospace',
-        ],
+        body: ['Nunito', 'ui-rounded', 'system-ui', 'sans-serif'],
+        headline: ['Nunito', 'ui-rounded', 'system-ui', 'sans-serif'],
+        code: ['"Red Hat Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        mono: ['"Red Hat Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -56,6 +48,18 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
+        ember: {
+          DEFAULT: 'hsl(var(--ember))',
+          ink: 'hsl(var(--ember-ink))',
+        },
+        success: 'hsl(var(--success))',
+        smoke: {
+          light: 'rgb(var(--smoke-light) / <alpha-value>)',
+          glass: 'rgb(var(--glass) / <alpha-value>)',
+          mid: 'rgb(var(--smoke-mid) / <alpha-value>)',
+          well: 'rgb(var(--well) / <alpha-value>)',
+          edge: 'rgb(var(--glass-edge) / <alpha-value>)',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -81,6 +85,11 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        /* Diagonal pairs from the cloud system: A = TL/BR large, B = TR/BL large */
+        'cloud-a': '24px 12px 24px 12px',
+        'cloud-b': '12px 24px 12px 24px',
+        'cloud-sa': '16px 8px 16px 8px',
+        'cloud-sb': '8px 16px 8px 16px',
       },
       keyframes: {
         'accordion-down': {
