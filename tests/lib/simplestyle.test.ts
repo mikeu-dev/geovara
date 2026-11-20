@@ -36,17 +36,17 @@ describe('simplestyle utilities', () => {
 
   it('should provide default Mapbox simplestyle props for each geometry type', () => {
     const pointStyle = getDefaultSimpleStyle('Point');
-    expect(pointStyle['marker-color']).toBe('#e11d48');
+    expect(pointStyle['marker-color']).toBe('#3E5C8A');
     expect(pointStyle['stroke']).toBe('#ffffff');
 
     const lineStyle = getDefaultSimpleStyle('LineString');
-    expect(lineStyle['stroke']).toBe('#2563eb');
+    expect(lineStyle['stroke']).toBe('#3E5C8A');
     expect(lineStyle['stroke-width']).toBe(3);
 
     const polyStyle = getDefaultSimpleStyle('Polygon');
-    expect(polyStyle['fill']).toBe('#3b82f6');
-    expect(polyStyle['fill-opacity']).toBe(0.3);
-    expect(polyStyle['stroke']).toBe('#1d4ed8');
+    expect(polyStyle['fill']).toBe('#3E5C8A');
+    expect(polyStyle['fill-opacity']).toBe(0.2);
+    expect(polyStyle['stroke']).toBe('#3E5C8A');
   });
 
   it('should create OpenLayers style correctly from simplestyle properties', () => {

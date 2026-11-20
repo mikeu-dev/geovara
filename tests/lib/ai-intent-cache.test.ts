@@ -110,3 +110,11 @@ describe('ai-intent-cache', () => {
     });
   });
 });
+
+describe('Ask Geovara quick-command chips', () => {
+  it('resolves every Indonesian chip instantly, without an AI call', async () => {
+    const { QUICK_COMMANDS } = await import('@/components/AIAssistant');
+    const actions = QUICK_COMMANDS.map((cmd) => matchQuickSpatialIntent(cmd)?.action);
+    expect(actions).toEqual(['flyTo', 'buffer', 'simplify', 'setBasemap']);
+  });
+});

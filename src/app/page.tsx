@@ -25,7 +25,9 @@ import { GisService } from '@/lib/spatial';
 import { Feature as GeoJSONFeature } from 'geojson';
 import AIAssistant from '@/components/AIAssistant';
 import CloudShell from '@/components/CloudShell';
-import { CLOUD, footWidth } from '@/lib/cloud-shape';
+import MobileSheet, { type SheetTab } from '@/components/MobileSheet';
+import { CLOUD, CLOUD_MOBILE, desktopLayout, mobileLayout } from '@/lib/cloud-shape';
+import { useViewportSize } from '@/hooks/use-viewport';
 import { SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 
 export type DrawType =
@@ -80,6 +82,26 @@ export default function Home() {
   const [rightOpen, setRightOpen] = useState(
     () => typeof window !== 'undefined' && window.innerWidth >= 1100
   );
+  const [askOpen, setAskOpen] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [sheetTab, setSheetTab] = useState<SheetTab>('feat');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const viewport = useViewportSize();
+  const isMobile = viewport.width > 0 && viewport.width < CLOUD_MOBILE.breakpoint;
+
+  // Ask lives in the right piece's foot, so opening it unfolds that piece first;
+  // folding the piece away closes Ask with it.
+  const handleAskOpenChange = useCallback(
+    (open: boolean) => {
+      setAskOpen(open);
+      if (open && !isMobile) setRightOpen(true);
+    },
+    [isMobile]
+  );
+  const handleRightOpenChange = useCallback((open: boolean) => {
+    setRightOpen(open);
+    if (!open) setAskOpen(false);
+  }, []);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -553,27 +575,65 @@ export default function Home() {
 
   if (!isClient) return null;
 
-  const lw = leftOpen ? CLOUD.leftW : CLOUD.tabW;
-  const rw = rightOpen ? CLOUD.rightW : CLOUD.tabW;
-  const cloudVars = {
-    '--map-l': `${CLOUD.margin + lw + CLOUD.gap}px`,
-    '--map-r': `${CLOUD.margin + rw + CLOUD.gap}px`,
-    '--cloud-top': `${CLOUD.margin + CLOUD.headerH + CLOUD.gap}px`,
-    '--cloud-bottom': `${CLOUD.margin}px`,
-    // Scale/coordinate slot fills the notch left of the editor's foot
-    '--slot-w': `${leftOpen ? lw - footWidth(lw) - CLOUD.gap : 0}px`,
-    '--slot-o': leftOpen ? 1 : 0,
-  } as React.CSSProperties;
+  const W = viewport.width;
+  const H = viewport.height;
+  const desk = desktopLayout(W, H, { leftOpen, rightOpen, askOpen });
+  const mob = mobileLayout(W, H, { sheetExpanded, askOpen });
+  const MB = CLOUD_MOBILE;
+
+  const cloudVars = (
+    isMobile
+      ? {
+          '--map-l': `${MB.margin}px`,
+          '--map-r': `${MB.margin}px`,
+          '--cloud-top': `${MB.margin + MB.headerH + MB.tabDrop}px`,
+          '--cloud-bottom': `${H - mob.sheetTop + MB.sheetTabH}px`,
+        }
+      : {
+          '--map-l': `${CLOUD.margin + desk.lw + CLOUD.gap}px`,
+          '--map-r': `${CLOUD.margin + desk.rw + CLOUD.gap}px`,
+          '--cloud-top': `${CLOUD.margin + CLOUD.headerH + CLOUD.gap}px`,
+          '--cloud-bottom': `${CLOUD.margin}px`,
+        }
+  ) as React.CSSProperties;
+
+  const askBox = isMobile ? mob.ask : desk.ask;
+  const mapChrome = isMobile
+    ? {
+        layout: 'mobile' as const,
+        rail: {
+          top: MB.margin + MB.headerH + MB.tabDrop + 16,
+          right: 14,
+          maxHeight: mob.sheetTop - MB.sheetTabH - (MB.margin + MB.headerH + MB.tabDrop + 16) - 12,
+          hidden: sheetExpanded || askOpen,
+        },
+        slot: null,
+        searchOpen: mobileSearchOpen,
+        onSearchOpenChange: setMobileSearchOpen,
+      }
+    : {
+        layout: 'desktop' as const,
+        rail: {
+          top: CLOUD.margin + CLOUD.headerH + CLOUD.gap + 16,
+          right: CLOUD.margin + desk.rw + CLOUD.gap + 16,
+          maxHeight: H - (CLOUD.margin + CLOUD.headerH + CLOUD.gap + 16) - 90,
+          hidden: false,
+        },
+        slot: desk.slot,
+        searchOpen: true,
+        onSearchOpenChange: setMobileSearchOpen,
+      };
 
   return (
     <div
       className="relative h-svh w-screen overflow-hidden bg-background text-foreground selection:bg-primary/20"
+      data-layout={isMobile ? 'mobile' : 'desktop'}
       style={cloudVars}
     >
       {/* Map fills the whole screen; the cloud pieces float over it */}
       <main className="absolute inset-0">
         {isParsing && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm animate-in fade-in duration-micro">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="mt-4 font-mono text-sm font-semibold text-muted-foreground animate-pulse">
               Memproses data geospasial…
@@ -598,17 +658,38 @@ export default function Home() {
           is3d={is3d}
           onToggle3d={handleToggle3d}
           showGraticule={showGraticule}
+          chrome={mapChrome}
         />
       </main>
 
-      <CloudShell leftWidth={lw} rightWidth={rw} />
+      <CloudShell pieces={isMobile ? mob.pieces : desk.pieces} width={W} height={H} />
 
-      <Header theme={theme} onToggleTheme={handleToggleTheme} is3d={is3d} onToggle3d={handleToggle3d} />
+      <Header
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        is3d={is3d}
+        onToggle3d={handleToggle3d}
+        layout={isMobile ? 'mobile' : 'desktop'}
+        brandHidden={isMobile && mobileSearchOpen}
+      />
+
+      {isMobile && (
+        <MobileSheet
+          sheetTop={mob.sheetTop}
+          expanded={sheetExpanded}
+          onExpandedChange={setSheetExpanded}
+          tab={sheetTab}
+          onTabChange={setSheetTab}
+          featureCount={features.length}
+        />
+      )}
 
       <Sidebar
         theme={theme}
         open={leftOpen}
         onOpenChange={setLeftOpen}
+        layout={desk}
+        sheet={isMobile ? { tab: sheetTab, top: mob.sheetTop } : null}
         geojsonString={geojsonString}
         onGeojsonChange={handleGeojsonChange}
         featuresCount={features.length}
@@ -626,7 +707,9 @@ export default function Home() {
 
       <RightSidebar
         open={rightOpen}
-        onOpenChange={setRightOpen}
+        onOpenChange={handleRightOpenChange}
+        layout={desk}
+        sheet={isMobile ? { active: sheetTab === 'feat', top: mob.sheetTop } : null}
         selectedFeature={selectedFeature}
         features={features}
         onGeojsonChange={handleGeojsonChange}
@@ -645,7 +728,10 @@ export default function Home() {
       />
 
       <AIAssistant
-        rightOpen={rightOpen}
+        open={askOpen}
+        onOpenChange={handleAskOpenChange}
+        box={askBox}
+        compact={isMobile || !rightOpen}
         onAction={handleAIAction}
         featureContext={
           selectedFeature ? JSON.stringify(format.writeFeatureObject(selectedFeature)) : undefined

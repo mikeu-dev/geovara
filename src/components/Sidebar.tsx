@@ -27,11 +27,9 @@ import {
   Table2,
   Hexagon,
 } from 'lucide-react';
-import { CLOUD, footWidth } from '@/lib/cloud-shape';
-import {
-  validateGeoJSONDeterministic,
-  ValidationResult,
-} from '@/lib/geojson-validator';
+import { CLOUD, CLOUD_MOBILE, type DesktopLayout } from '@/lib/cloud-shape';
+import { SHEET_TABS_H, type SheetTab } from './MobileSheet';
+import { validateGeoJSONDeterministic, ValidationResult } from '@/lib/geojson-validator';
 import { GisService } from '@/lib/spatial';
 import { FeatureCollection } from 'geojson';
 import { Skeleton } from './ui/skeleton';
@@ -79,6 +77,10 @@ interface SidebarProps {
   /** Whether the editor piece is expanded (380px) or collapsed to its 100px rail. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Desktop shell geometry for the current state. */
+  layout: DesktopLayout;
+  /** On mobile the editor renders inside the bottom sheet instead of the left piece. */
+  sheet?: { tab: SheetTab; top: number } | null;
 }
 
 const geojsonFormat = new GeoJSON({
@@ -114,6 +116,9 @@ function defineSmokeThemes(monaco: Monaco) {
       'editor.selectionBackground': '#3E5C8A33',
       'editorGutter.background': '#FFFFFF00',
       'scrollbarSlider.background': '#25272B22',
+      focusBorder: '#00000000',
+      'editorWidget.background': '#F1F0ED',
+      'editorSuggestWidget.selectedBackground': '#3E5C8A26',
     },
   });
   monaco.editor.defineTheme('geovara-smoke-dark', {
@@ -130,6 +135,7 @@ function defineSmokeThemes(monaco: Monaco) {
       'editorGutter.background': '#00000000',
       'editor.lineHighlightBackground': '#86A2CF1A',
       'editor.lineHighlightBorder': '#00000000',
+      focusBorder: '#00000000',
     },
   });
 }
@@ -157,6 +163,8 @@ export default function Sidebar({
   theme = 'light',
   open,
   onOpenChange,
+  layout,
+  sheet = null,
 }: SidebarProps) {
   const { toast } = useToast();
   const editorRef = useRef<MonacoCodeEditor | null>(null);
@@ -166,8 +174,8 @@ export default function Sidebar({
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [tab, setTab] = useState<'json' | 'table'>('json');
 
-  const width = open ? CLOUD.leftW : CLOUD.tabW;
-  const footW = footWidth(width);
+  const width = layout.lw;
+  const footW = layout.leftFootW;
 
   const openTab = useCallback(
     (next: 'json' | 'table') => {
@@ -348,16 +356,337 @@ export default function Sidebar({
     }
   };
 
-  const fc = validationResult?.stats?.featureCount ?? features.length;
   const iconBtn =
     'w-9 h-9 p-0 justify-center rounded-cloud-sa text-muted-foreground hover:text-foreground hover:bg-smoke-mid/55 focus:bg-smoke-mid/55 data-[state=open]:bg-smoke-mid/55';
+
+  const fc = validationResult?.stats?.featureCount ?? features.length;
+  const activeTab: 'json' | 'table' = sheet ? (sheet.tab === 'table' ? 'table' : 'json') : tab;
+  const wellMargin = sheet ? 'mt-0' : 'mt-0 mb-[18px] ml-[22px] mr-[14px]';
+
+  const statusText = !validationResult
+    ? { tone: 'muted' as const, line1: 'Belum ada data', line2: '' }
+    : validationResult.isValid
+      ? { tone: 'ok' as const, line1: 'GeoJSON valid', line2: `RFC 7946 · ${fc} fitur` }
+      : {
+          tone: 'error' as const,
+          line1: 'GeoJSON tidak valid',
+          line2: validationResult.line ? `baris ${validationResult.line}` : 'periksa editor',
+        };
+  const StatusIcon = statusText.tone === 'error' ? AlertTriangle : Hexagon;
+  const statusTone =
+    statusText.tone === 'ok'
+      ? 'text-success'
+      : statusText.tone === 'error'
+        ? 'text-destructive'
+        : 'text-muted-foreground';
+
+  const actions = (
+    <Menubar className="border-none p-0 h-auto bg-transparent gap-0.5 shadow-none">
+      <MenubarMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <MenubarTrigger
+              className={`${iconBtn} hover:text-destructive`}
+              onClick={() => setIsClearConfirmOpen(true)}
+              disabled={featuresCount === 0 && (!geojsonString || !geojsonString.trim())}
+              aria-label="Hapus semua fitur"
+            >
+              <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </MenubarTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Hapus Semua Data</p>
+          </TooltipContent>
+        </Tooltip>
+      </MenubarMenu>
+
+      <MenubarMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <MenubarTrigger
+              className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
+              onClick={undo}
+              disabled={!canUndo}
+              aria-label="Undo"
+            >
+              <Undo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </MenubarTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Undo (Ctrl+Z)</p>
+          </TooltipContent>
+        </Tooltip>
+      </MenubarMenu>
+
+      <MenubarMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <MenubarTrigger
+              className={iconBtn}
+              onClick={redo}
+              disabled={!canRedo}
+              aria-label="Redo"
+            >
+              <Redo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </MenubarTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Redo (Ctrl+Y)</p>
+          </TooltipContent>
+        </Tooltip>
+      </MenubarMenu>
+
+      <MenubarMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <MenubarTrigger
+              className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
+              onClick={handleCopyLink}
+              aria-label="Bagikan tautan peta"
+            >
+              {isLinkCopied ? (
+                <Check className="h-[18px] w-[18px] text-success" strokeWidth={1.8} />
+              ) : (
+                <Share2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+              )}
+            </MenubarTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{isLinkCopied ? 'Tautan disalin!' : 'Bagikan tautan peta'}</p>
+          </TooltipContent>
+        </Tooltip>
+      </MenubarMenu>
+
+      <MenubarMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <MenubarTrigger className={iconBtn} disabled={!geojsonString} aria-label="Ekspor">
+              <FileDown className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </MenubarTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Ekspor Dataset</p>
+          </TooltipContent>
+        </Tooltip>
+        <MenubarContent className="rounded-cloud-b">
+          <MenubarItem onClick={() => handleDownload('geojson')}>Save as GeoJSON</MenubarItem>
+          <MenubarItem onClick={() => handleDownload('topojson')}>Save as TopoJSON</MenubarItem>
+          <MenubarItem onClick={() => handleDownload('csv')}>Save as CSV</MenubarItem>
+          <MenubarItem onClick={() => handleDownload('wkt')}>Save as WKT</MenubarItem>
+          <MenubarItem onClick={() => handleDownload('kml')}>Save as KML</MenubarItem>
+          <MenubarItem onClick={() => handleDownload('kmz')}>Save as KMZ</MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+    </Menubar>
+  );
+
+  const editorTabs = (
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setTab(v as 'json' | 'table')}
+      className="flex-1 flex flex-col min-h-0 overflow-hidden"
+    >
+      {!sheet && (
+        <TabsList className="relative grid grid-cols-2 h-auto flex-shrink-0 mt-1 mb-2.5 ml-[22px] mr-[14px] p-1 rounded-cloud-a bg-smoke-mid/55">
+          <span
+            aria-hidden="true"
+            className="cloud-move cloud-spring absolute top-1 bottom-1 w-[calc(50%-4px)] bg-smoke-well/90 shadow-[0_3px_8px_rgb(var(--shadow-ink)/0.12)]"
+            style={{
+              left: tab === 'json' ? 4 : '50%',
+              borderRadius: tab === 'json' ? '16px 8px 16px 8px' : '8px 16px 8px 16px',
+            }}
+          />
+          <TabsTrigger
+            value="json"
+            className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            JSON
+          </TabsTrigger>
+          <TabsTrigger
+            value="table"
+            className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            Tabel ({features.length})
+          </TabsTrigger>
+        </TabsList>
+      )}
+
+      {/* JSON Monaco Editor Tab */}
+      <TabsContent
+        value="json"
+        className={`flex-1 relative ${wellMargin} rounded-cloud-b bg-smoke-well/60 shadow-[inset_0_1px_2px_rgb(var(--shadow-ink)/0.06)] overflow-hidden min-h-0`}
+      >
+        {geojsonString && (
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-cloud-sa bg-smoke-light/80 hover:bg-smoke-mid"
+                  onClick={handleFormatJson}
+                  disabled={!geojsonString || !geojsonString.trim()}
+                  aria-label="Format JSON"
+                >
+                  <Code2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Rapikan / Format JSON</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-cloud-sb bg-smoke-light/80 hover:bg-smoke-mid"
+                  onClick={handleCopy}
+                  aria-label="Salin ke clipboard"
+                >
+                  {isCopied ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{isCopied ? 'Disalin!' : 'Salin ke clipboard'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
+        <Editor
+          height="100%"
+          language="json"
+          value={geojsonString}
+          onChange={onGeojsonChange}
+          onMount={(editor) => {
+            editorRef.current = editor;
+          }}
+          beforeMount={(monaco) => {
+            defineSmokeThemes(monaco);
+            monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+              validate: true,
+              allowComments: false,
+              schemas: [
+                {
+                  uri: 'http://json.schemastore.org/geojson.json',
+                  fileMatch: ['*'],
+                },
+              ],
+            });
+          }}
+          theme={theme === 'dark' ? 'geovara-smoke-dark' : 'geovara-smoke'}
+          options={{
+            readOnly: false,
+            minimap: { enabled: false },
+            fontSize: 12,
+            lineHeight: 22,
+            fontFamily: "'Red Hat Mono', ui-monospace, monospace",
+            lineNumbers: 'on',
+            lineNumbersMinChars: 3,
+            glyphMargin: false,
+            folding: false,
+            padding: { top: 10 },
+            wordWrap: 'on',
+            tabSize: 2,
+            insertSpaces: true,
+            formatOnPaste: true,
+            formatOnType: true,
+            autoClosingBrackets: 'always',
+            autoClosingQuotes: 'always',
+            autoSurround: 'languageDefined',
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            quickSuggestions: { other: true, comments: false, strings: true },
+            bracketPairColorization: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            renderLineHighlight: 'all',
+            overviewRulerLanes: 0,
+            cursorBlinking: 'smooth',
+          }}
+        />
+
+        {validationResult && !validationResult.isValid && (
+          <button
+            type="button"
+            onClick={() => handleJumpToError(validationResult.line, validationResult.column)}
+            className="absolute bottom-2 left-2 right-2 px-3 py-2.5 rounded-cloud-a bg-destructive text-destructive-foreground text-xs flex items-center justify-between z-10 text-left transition-colors hover:bg-destructive/90 cursor-pointer group"
+          >
+            <div className="flex items-center gap-2 overflow-hidden pr-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate font-mono">{validationResult.feedback}</span>
+            </div>
+            {validationResult.line && (
+              <span className="text-[10px] font-mono opacity-90 underline group-hover:opacity-100 flex-shrink-0">
+                Lompat ke baris {validationResult.line} →
+              </span>
+            )}
+          </button>
+        )}
+      </TabsContent>
+
+      {/* Table Tab */}
+      <TabsContent
+        value="table"
+        className={`flex-1 ${wellMargin} rounded-cloud-b bg-smoke-well/60 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col`}
+      >
+        <AttributeTable
+          features={features}
+          onPropertyChange={onFeaturePropertyChange || (() => {})}
+          onZoomToFeature={onZoomToFeature}
+          onFeatureSelect={onFeatureSelect}
+          onDeleteFeature={onDeleteFeature}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (sheet) {
+    const box = {
+      left: CLOUD_MOBILE.margin + 12,
+      right: CLOUD_MOBILE.margin + 12,
+      top: sheet.top + SHEET_TABS_H,
+      bottom: CLOUD_MOBILE.margin + CLOUD_MOBILE.footH + 6,
+    };
+    return (
+      <>
+        <section
+          aria-label="Editor GeoJSON"
+          aria-hidden={sheet.tab === 'feat'}
+          className={`cloud-move absolute z-30 flex-col gap-2 ${sheet.tab === 'feat' ? 'hidden' : 'flex'}`}
+          style={box}
+        >
+          <TooltipProvider>
+            <div className="flex justify-end">{actions}</div>
+            {editorTabs}
+          </TooltipProvider>
+        </section>
+        <div
+          role="status"
+          className={`absolute z-30 flex items-center gap-1.5 font-mono text-xs font-semibold whitespace-nowrap ${statusTone}`}
+          style={{ left: CLOUD_MOBILE.margin + 16, bottom: CLOUD_MOBILE.margin + 35, height: 16 }}
+        >
+          <StatusIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+          {statusText.line1}
+        </div>
+        {renderDialogs()}
+      </>
+    );
+  }
 
   return (
     <>
       <section
         aria-label="Editor GeoJSON"
         className="cloud-move absolute z-30 overflow-hidden select-none"
-        style={{ left: CLOUD.margin, top: TOP, bottom: TOP, width }}
+        style={{ left: CLOUD.margin, top: TOP, bottom: layout.leftBodyBottom, width }}
       >
         {/* Expanded editor */}
         <div
@@ -373,111 +702,8 @@ export default function Sidebar({
           <TooltipProvider>
             <div className="flex items-center justify-between pt-3 pb-2 pl-[22px] pr-[14px]">
               <h2 className="text-[17px] font-black">Editor</h2>
-              <Menubar className="border-none p-0 h-auto bg-transparent gap-0.5 shadow-none">
-                <MenubarMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <MenubarTrigger
-                        className={`${iconBtn} hover:text-destructive`}
-                        onClick={() => setIsClearConfirmOpen(true)}
-                        disabled={featuresCount === 0 && (!geojsonString || !geojsonString.trim())}
-                        aria-label="Hapus semua fitur"
-                      >
-                        <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      </MenubarTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Hapus Semua Data</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </MenubarMenu>
-
-                <MenubarMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <MenubarTrigger
-                        className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
-                        onClick={undo}
-                        disabled={!canUndo}
-                        aria-label="Undo"
-                      >
-                        <Undo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      </MenubarTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Undo (Ctrl+Z)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </MenubarMenu>
-
-                <MenubarMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <MenubarTrigger
-                        className={iconBtn}
-                        onClick={redo}
-                        disabled={!canRedo}
-                        aria-label="Redo"
-                      >
-                        <Redo2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      </MenubarTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Redo (Ctrl+Y)</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </MenubarMenu>
-
-                <MenubarMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <MenubarTrigger
-                        className={iconBtn.replace('rounded-cloud-sa', 'rounded-cloud-sb')}
-                        onClick={handleCopyLink}
-                        aria-label="Bagikan tautan peta"
-                      >
-                        {isLinkCopied ? (
-                          <Check className="h-[18px] w-[18px] text-success" strokeWidth={1.8} />
-                        ) : (
-                          <Share2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                        )}
-                      </MenubarTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>{isLinkCopied ? 'Tautan disalin!' : 'Bagikan tautan peta'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </MenubarMenu>
-
-                <MenubarMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <MenubarTrigger
-                        className={iconBtn}
-                        disabled={!geojsonString}
-                        aria-label="Ekspor"
-                      >
-                        <FileDown className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                      </MenubarTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Ekspor Dataset</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <MenubarContent className="rounded-cloud-b">
-                    <MenubarItem onClick={() => handleDownload('geojson')}>
-                      Save as GeoJSON
-                    </MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('topojson')}>
-                      Save as TopoJSON
-                    </MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('csv')}>Save as CSV</MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('wkt')}>Save as WKT</MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('kml')}>Save as KML</MenubarItem>
-                    <MenubarItem onClick={() => handleDownload('kmz')}>Save as KMZ</MenubarItem>
-                  </MenubarContent>
-                </MenubarMenu>
-
+              <div className="flex items-center gap-0.5">
+                {actions}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -493,182 +719,21 @@ export default function Sidebar({
                     <p>Ciutkan editor</p>
                   </TooltipContent>
                 </Tooltip>
-              </Menubar>
+              </div>
             </div>
 
-            {/* JSON / Table segmented tabs with a sliding thumb */}
-            <Tabs
-              value={tab}
-              onValueChange={(v) => setTab(v as 'json' | 'table')}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden"
-            >
-              <TabsList className="relative grid grid-cols-2 h-auto flex-shrink-0 mt-1 mb-2.5 ml-[22px] mr-[14px] p-1 rounded-cloud-a bg-smoke-mid/55">
-                <span
-                  aria-hidden="true"
-                  className="cloud-move cloud-spring absolute top-1 bottom-1 w-[calc(50%-4px)] bg-smoke-well/90 shadow-[0_3px_8px_rgb(var(--shadow-ink)/0.12)]"
-                  style={{
-                    left: tab === 'json' ? 4 : '50%',
-                    borderRadius: tab === 'json' ? '16px 8px 16px 8px' : '8px 16px 8px 16px',
-                  }}
-                />
-                <TabsTrigger
-                  value="json"
-                  className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  JSON
-                </TabsTrigger>
-                <TabsTrigger
-                  value="table"
-                  className="relative h-9 text-sm font-extrabold text-foreground bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  Tabel ({features.length})
-                </TabsTrigger>
-              </TabsList>
-
-              {/* JSON Monaco Editor Tab */}
-              <TabsContent
-                value="json"
-                className="flex-1 relative mt-0 mb-[18px] ml-[22px] mr-[14px] rounded-cloud-b bg-smoke-well/60 shadow-[inset_0_1px_2px_rgb(var(--shadow-ink)/0.06)] overflow-hidden min-h-0"
-              >
-                {geojsonString && (
-                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-cloud-sa bg-smoke-light/80 hover:bg-smoke-mid"
-                          onClick={handleFormatJson}
-                          disabled={!geojsonString || !geojsonString.trim()}
-                          aria-label="Format JSON"
-                        >
-                          <Code2 className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p>Rapikan / Format JSON</p>
-                      </TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-cloud-sb bg-smoke-light/80 hover:bg-smoke-mid"
-                          onClick={handleCopy}
-                          aria-label="Salin ke clipboard"
-                        >
-                          {isCopied ? (
-                            <Check className="h-4 w-4 text-success" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p>{isCopied ? 'Disalin!' : 'Salin ke clipboard'}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
-
-                <Editor
-                  height="100%"
-                  language="json"
-                  value={geojsonString}
-                  onChange={onGeojsonChange}
-                  onMount={(editor) => {
-                    editorRef.current = editor;
-                  }}
-                  beforeMount={(monaco) => {
-                    defineSmokeThemes(monaco);
-                    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
-                      validate: true,
-                      allowComments: false,
-                      schemas: [
-                        {
-                          uri: 'http://json.schemastore.org/geojson.json',
-                          fileMatch: ['*'],
-                        },
-                      ],
-                    });
-                  }}
-                  theme={theme === 'dark' ? 'geovara-smoke-dark' : 'geovara-smoke'}
-                  options={{
-                    readOnly: false,
-                    minimap: { enabled: false },
-                    fontSize: 12,
-                    lineHeight: 22,
-                    fontFamily: "'Red Hat Mono', ui-monospace, monospace",
-                    lineNumbers: 'on',
-                    lineNumbersMinChars: 3,
-                    glyphMargin: false,
-                    folding: false,
-                    padding: { top: 10 },
-                    wordWrap: 'on',
-                    tabSize: 2,
-                    insertSpaces: true,
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    autoClosingBrackets: 'always',
-                    autoClosingQuotes: 'always',
-                    autoSurround: 'languageDefined',
-                    suggestOnTriggerCharacters: true,
-                    acceptSuggestionOnEnter: 'on',
-                    tabCompletion: 'on',
-                    quickSuggestions: { other: true, comments: false, strings: true },
-                    bracketPairColorization: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    renderLineHighlight: 'all',
-                    overviewRulerLanes: 0,
-                    cursorBlinking: 'smooth',
-                  }}
-                />
-
-                {validationResult && !validationResult.isValid && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleJumpToError(validationResult.line, validationResult.column)
-                    }
-                    className="absolute bottom-2 left-2 right-2 px-3 py-2.5 rounded-cloud-a bg-destructive text-destructive-foreground text-xs flex items-center justify-between z-10 text-left transition-colors hover:bg-destructive/90 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden pr-2">
-                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate font-mono">{validationResult.feedback}</span>
-                    </div>
-                    {validationResult.line && (
-                      <span className="text-[10px] font-mono opacity-90 underline group-hover:opacity-100 flex-shrink-0">
-                        Lompat ke baris {validationResult.line} →
-                      </span>
-                    )}
-                  </button>
-                )}
-              </TabsContent>
-
-              {/* Table Tab */}
-              <TabsContent
-                value="table"
-                className="flex-1 mt-0 mb-[18px] ml-[22px] mr-[14px] rounded-cloud-b bg-smoke-well/60 overflow-hidden min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
-              >
-                <AttributeTable
-                  features={features}
-                  onPropertyChange={onFeaturePropertyChange || (() => {})}
-                  onZoomToFeature={onZoomToFeature}
-                  onFeatureSelect={onFeatureSelect}
-                  onDeleteFeature={onDeleteFeature}
-                />
-              </TabsContent>
-            </Tabs>
+            {editorTabs}
           </TooltipProvider>
         </div>
 
         {/* Collapsed rail */}
         <div
           className="cloud-fade absolute left-0 top-0 flex flex-col items-center gap-2 pt-3.5"
-          style={{ width: CLOUD.tabW, opacity: open ? 0 : 1, pointerEvents: open ? 'none' : 'auto' }}
+          style={{
+            width: CLOUD.tabW,
+            opacity: open ? 0 : 1,
+            pointerEvents: open ? 'none' : 'auto',
+          }}
           aria-hidden={open}
         >
           <button
@@ -699,65 +764,76 @@ export default function Sidebar({
             <Table2 className="h-5 w-5" strokeWidth={1.7} />
           </button>
         </div>
+
+        {/* Compact status at the foot of the collapsed rail */}
+        <div
+          role="status"
+          className={`cloud-fade absolute left-0 bottom-3 flex flex-col items-center gap-0.5 font-mono text-[11px] font-semibold ${statusTone}`}
+          style={{ width: CLOUD.tabW, opacity: open ? 0 : 1 }}
+          aria-hidden={open}
+        >
+          <StatusIcon className="h-4 w-4" strokeWidth={1.8} />
+          <span>
+            {statusText.tone === 'ok'
+              ? `${fc} fitur`
+              : statusText.tone === 'error'
+                ? 'Galat'
+                : 'Kosong'}
+          </span>
+        </div>
       </section>
 
       {/* Validation status in the left piece's foot */}
       <div
         role="status"
-        className="cloud-move absolute z-30 flex flex-col justify-center px-[18px] font-mono text-xs font-semibold overflow-hidden whitespace-nowrap"
+        className="cloud-move absolute z-30 flex flex-col justify-center gap-0.5 pl-5 pr-6 font-mono text-xs font-semibold overflow-hidden whitespace-nowrap"
         style={{
           bottom: CLOUD.margin,
           height: CLOUD.footH,
           left: CLOUD.margin + width - footW,
           width: footW,
+          opacity: footW ? 1 : 0,
         }}
+        aria-hidden={!footW}
       >
-        {!validationResult ? (
-          <span className="text-muted-foreground font-medium">{open ? 'Belum ada data' : 'Kosong'}</span>
-        ) : validationResult.isValid ? (
-          <>
-            <span className="flex items-center gap-1.5 text-success">
-              <Hexagon className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {open ? 'GeoJSON valid · RFC 7946' : 'Valid'}
-            </span>
-            <span className="text-muted-foreground font-medium">
-              {open ? `${fc} fitur · 0 galat` : `${fc} fitur`}
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="flex items-center gap-1.5 text-destructive">
-              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {open ? 'GeoJSON tidak valid' : 'Galat'}
-            </span>
-            <span className="text-muted-foreground font-medium">
-              {validationResult.line ? `baris ${validationResult.line}` : 'periksa editor'}
-            </span>
-          </>
+        <span className={`flex items-center gap-1.5 ${statusTone}`}>
+          <StatusIcon className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={1.8} />
+          {statusText.line1}
+        </span>
+        {statusText.line2 && (
+          <span className="text-muted-foreground font-medium">{statusText.line2}</span>
         )}
       </div>
 
-      {/* Clear All Confirmation Dialog */}
-      <AlertDialog open={isClearConfirmOpen} onOpenChange={setIsClearConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Semua Fitur?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tindakan ini akan menghapus seluruh data fitur dari peta dan mengosongkan editor.
-              Tindakan ini dapat dibatalkan menggunakan Undo (Ctrl+Z).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleClear}
-            >
-              Hapus Semua
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {renderDialogs()}
     </>
   );
+
+  function renderDialogs() {
+    return (
+      <>
+        {/* Clear All Confirmation Dialog */}
+        <AlertDialog open={isClearConfirmOpen} onOpenChange={setIsClearConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Hapus Semua Fitur?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tindakan ini akan menghapus seluruh data fitur dari peta dan mengosongkan editor.
+                Tindakan ini dapat dibatalkan menggunakan Undo (Ctrl+Z).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Batal</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleClear}
+              >
+                Hapus Semua
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
 }

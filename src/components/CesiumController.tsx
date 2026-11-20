@@ -398,16 +398,16 @@ export default function CesiumController({
 
     Cesium.GeoJsonDataSource.load(geojson, {
       clampToGround: true,
-      stroke: CesiumColor.fromCssColorString('#9333ea'),
-      fill: CesiumColor.fromCssColorString('rgba(147, 51, 234, 0.35)'),
+      stroke: CesiumColor.fromCssColorString('#3E5C8A'),
+      fill: CesiumColor.fromCssColorString('rgba(62, 92, 138, 0.3)'),
       strokeWidth: 3,
     })
       .then((ds) => {
         // Iterate through entities and apply rich 3D styling & labels
         for (const entity of ds.entities.values) {
           const rawProps = entity.properties?.getValue?.(Cesium.JulianDate?.now?.()) || {};
-          const strokeHex = (rawProps.stroke as string) || '#9333ea';
-          const fillHex = (rawProps.fill as string) || 'rgba(147, 51, 234, 0.35)';
+          const strokeHex = (rawProps.stroke as string) || '#3E5C8A';
+          const fillHex = (rawProps.fill as string) || 'rgba(62, 92, 138, 0.3)';
           const strokeWidth = Number(rawProps.strokeWidth) || 3;
           const name =
             rawProps.name ||

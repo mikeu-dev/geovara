@@ -1,5 +1,6 @@
 'use client';
 
+import { measureFeature } from '@/lib/measure';
 import { useState, useEffect, useRef, MouseEvent as ReactMouseEvent } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -7,16 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Trash2, Plus, GripVertical, Palette } from 'lucide-react';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
-import { Feature as GeoJSONFeature } from 'geojson';
-import GeoJSON from 'ol/format/GeoJSON';
-import { GisService } from '@/lib/spatial';
 import {
   getDefaultSimpleStyle,
   isColorProperty,
   normalizeToHexColor,
 } from '@/lib/simplestyle';
 
-const geojsonFormat = new GeoJSON();
 
 interface FeaturePropertiesPopupProps {
   feature: Feature<Geometry>;
@@ -162,36 +159,9 @@ export default function FeaturePropertiesPopup({
   };
 
   const calculatedAnalysis = (() => {
-    try {
-      const geometry = feature.getGeometry();
-      if (!geometry) return null;
-
-      const type = geometry.getType();
-      const geojson = geojsonFormat.writeFeatureObject(feature) as GeoJSONFeature;
-
-      if (type === 'Polygon' || type === 'MultiPolygon' || type === 'Circle') {
-        const area = GisService.calculateArea(geojson);
-        return {
-          label: 'Area',
-          value:
-            area > 1000000
-              ? `${(area / 1000000).toFixed(4)} km²`
-              : `${area.toFixed(2)} m²`,
-        };
-      } else if (type === 'LineString' || type === 'MultiLineString') {
-        const length = GisService.calculateLength(geojson);
-        return {
-          label: 'Length',
-          value:
-            length > 1000
-              ? `${(length / 1000).toFixed(4)} km`
-              : `${length.toFixed(2)} m`,
-        };
-      }
-      return null;
-    } catch {
-      return null;
-    }
+    const m = measureFeature(feature);
+    if (!m || m.kind === 'point') return null;
+    return { label: m.kind === 'area' ? 'Luas' : 'Panjang', value: m.label };
   })();
 
   return (
@@ -199,7 +169,10 @@ export default function FeaturePropertiesPopup({
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
         ref={popupRef}
-        className="w-84 cursor-default shadow-xl border-border bg-popover/95 backdrop-blur-md"
+        side="top"
+        sideOffset={8}
+        collisionPadding={{ top: 104, bottom: 24, left: 16, right: 16 }}
+        className="w-84 cursor-default border-0 rounded-cloud-a glass-smoke shadow-[0_10px_24px_rgb(var(--shadow-ink)/0.18),inset_0_0_0_1.5px_rgb(var(--glass-edge)/0.8)] animate-cloud-pop"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onPointerDownOutside={() => onOpenChange(false)}
         style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
@@ -209,15 +182,13 @@ export default function FeaturePropertiesPopup({
             <div
               className="flex items-center justify-center cursor-move text-muted-foreground/60 hover:text-muted-foreground py-1"
               onMouseDown={handleDragStart}
-              title="Drag to move popup"
+              title="Seret untuk memindahkan"
             >
               <GripVertical className="h-4 w-4" />
             </div>
-            <h4 className="font-semibold text-sm leading-none text-center">
-              Feature Properties
-            </h4>
-            <p className="text-[11px] text-muted-foreground text-center">
-              Edit properties, colors, or simplestyle attributes.
+            <h4 className="font-black text-base leading-none text-center">Properti fitur</h4>
+            <p className="font-mono text-[11px] text-muted-foreground text-center">
+              Ubah atribut, warna, atau gaya simplestyle.
             </p>
           </div>
 
@@ -247,7 +218,7 @@ export default function FeaturePropertiesPopup({
                           handlePropertyValueChange(key, e.target.value)
                         }
                         className="w-8 h-8 p-0.5 border border-border rounded cursor-pointer flex-shrink-0 bg-transparent"
-                        title="Pick color"
+                        title="Pilih warna"
                       />
                       <Input
                         value={
@@ -278,9 +249,9 @@ export default function FeaturePropertiesPopup({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                    className="h-9 w-9 flex-shrink-0 rounded-cloud-sb text-muted-foreground hover:text-destructive transition-colors"
                     onClick={() => handleRemoveProperty(key)}
-                    aria-label={`Remove property ${key}`}
+                    aria-label={`Hapus properti ${key}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -289,28 +260,28 @@ export default function FeaturePropertiesPopup({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-border/50">
+          <div className="flex items-center justify-between gap-2 pt-1">
             <Button
               variant="outline"
               size="sm"
               onClick={handleAddProperty}
-              className="text-xs h-8"
+              className="text-xs font-extrabold h-9 rounded-cloud-sa border-0 bg-smoke-well/70 hover:bg-smoke-well"
             >
-              <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Property
+              <Plus className="h-3.5 w-3.5 mr-1.5" /> Tambah properti
             </Button>
 
             <Button
               variant="secondary"
               size="sm"
               onClick={handleAddSimpleStyle}
-              className="text-xs h-8 text-primary hover:text-primary font-medium"
+              className="text-xs h-9 rounded-cloud-sb bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary font-extrabold"
             >
-              <Palette className="h-3.5 w-3.5 mr-1.5 text-primary" /> Add simple style
+              <Palette className="h-3.5 w-3.5 mr-1.5 text-primary" /> Tambah gaya
             </Button>
           </div>
 
           {calculatedAnalysis && (
-            <div className="p-2 bg-muted/60 rounded-md border border-dashed text-xs flex justify-between items-center">
+            <div className="px-3 py-2 bg-smoke-well/70 rounded-cloud-b text-xs flex justify-between items-center">
               <span className="font-medium text-muted-foreground">
                 {calculatedAnalysis.label}:
               </span>
@@ -318,17 +289,21 @@ export default function FeaturePropertiesPopup({
             </div>
           )}
 
-          <div className="flex justify-between items-center pt-2 border-t border-border">
+          <div className="flex justify-between items-center pt-1">
             <Button
               variant="destructive"
               size="sm"
               onClick={() => onDelete(feature.getId())}
-              className="text-xs h-8"
+              className="text-xs font-extrabold h-9 rounded-cloud-sa"
             >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Feature
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Hapus fitur
             </Button>
-            <Button size="sm" onClick={() => onOpenChange(false)} className="text-xs h-8">
-              Done
+            <Button
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="text-xs font-extrabold h-9 rounded-cloud-sb"
+            >
+              Selesai
             </Button>
           </div>
         </div>

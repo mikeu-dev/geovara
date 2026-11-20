@@ -1,3 +1,4 @@
+import { MOTION } from '@/lib/cloud-shape';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
@@ -16,8 +17,9 @@ import type { Geometry } from 'ol/geom';
 import { createEmpty, extend, isEmpty } from 'ol/extent';
 import { DrawEvent } from 'ol/interaction/Draw';
 import { SelectEvent } from 'ol/interaction/Select';
+import { createSimplestyleForFeature } from '@/lib/simplestyle';
 import { DragAndDropEvent } from 'ol/interaction/DragAndDrop';
-import { Zoom, Attribution, ScaleLine, defaults as defaultControls } from 'ol/control';
+import { Zoom, Attribution, defaults as defaultControls } from 'ol/control';
 import { Style } from 'ol/style';
 import type { StyleLike } from 'ol/style/Style';
 import type { Type } from 'ol/geom/Geometry';
@@ -76,7 +78,15 @@ export function useMap({
         source: new OSM({ crossOrigin: 'anonymous' }),
       })
   );
-  const [selectInteraction] = useState(() => new Select({ hitTolerance: 5 }));
+  // Selected features keep their own style plus the ember selection halo,
+  // instead of OpenLayers' default bright-blue select style.
+  const [selectInteraction] = useState(
+    () =>
+      new Select({
+        hitTolerance: 5,
+        style: (feature) => createSimplestyleForFeature(feature as Feature<Geometry>, true),
+      })
+  );
   const [modifyInteraction] = useState(() => new Modify({ source: vectorSource }));
 
   const vectorLayerRef = useRef<VectorLayer<Feature<Geometry>> | null>(null);
@@ -143,7 +153,7 @@ export function useMap({
       controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([
         new Zoom(),
         new Attribution({ collapsible: true }),
-        new ScaleLine({ units: 'metric' }),
+        // The scale bar lives in the cloud shell's scale slot (StatusBar)
       ]),
     });
 
@@ -197,7 +207,7 @@ export function useMap({
         });
         if (!isEmpty(extent) && isFinite(extent[0])) {
           newMap.getView().fit(extent, {
-            duration: 1000,
+            duration: MOTION.camera,
             padding: [60, 60, 60, 60],
             maxZoom: 18,
           });
@@ -225,9 +235,9 @@ export function useMap({
       if (boundingbox) {
         const [minLat, maxLat, minLon, maxLon] = boundingbox.map(parseFloat);
         const extent = transformExtent([minLon, minLat, maxLon, maxLat], 'EPSG:4326', 'EPSG:3857');
-        view.fit(extent, { duration: 1000, padding: [50, 50, 50, 50] });
+        view.fit(extent, { duration: MOTION.camera, padding: [50, 50, 50, 50] });
       } else if (lon !== undefined && lat !== undefined) {
-        view.animate({ center: fromLonLat([lon, lat]), zoom: 16, duration: 1000 });
+        view.animate({ center: fromLonLat([lon, lat]), zoom: 16, duration: MOTION.camera });
       }
     };
 

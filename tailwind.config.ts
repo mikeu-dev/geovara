@@ -91,6 +91,12 @@ export default {
         'cloud-sa': '16px 8px 16px 8px',
         'cloud-sb': '8px 16px 8px 16px',
       },
+      transitionDuration: {
+        DEFAULT: '160ms',
+        micro: '160ms',
+        morph: '620ms',
+        camera: '1000ms',
+      },
       keyframes: {
         'accordion-down': {
           from: {
