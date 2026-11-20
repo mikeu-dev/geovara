@@ -1,5 +1,6 @@
 'use client';
 
+import { MOTION } from '@/lib/cloud-shape';
 import React, { useEffect, useState } from 'react';
 import { Compass as CompassIcon } from 'lucide-react';
 import { Map } from 'ol';
@@ -28,7 +29,7 @@ export default function Compass({ map }: CompassProps) {
     if (!map) return;
     map.getView().animate({
       rotation: 0,
-      duration: 250,
+      duration: MOTION.camera,
     });
   };
 
@@ -44,8 +45,9 @@ export default function Compass({ map }: CompassProps) {
             <Button
               variant="secondary"
               size="icon"
-              className="h-8 w-8 rounded-[var(--radius)] shadow-sm border border-[hsl(var(--glass-border))] bg-[hsl(var(--glass-bg))] backdrop-blur-md hover:bg-secondary hover:text-foreground text-foreground transition-all duration-200 group"
+              className="geovara-compass h-10 w-10 rounded-cloud-sa glass-smoke float-shadow border-0 hover:bg-smoke-mid hover:text-foreground text-foreground transition-colors duration-micro group"
               onClick={handleResetRotation}
+              aria-label="Arahkan peta ke utara"
               style={{ transform: `rotate(${rotation}rad)` }}
             >
               <CompassIcon className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
@@ -53,7 +55,7 @@ export default function Compass({ map }: CompassProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            <p className="text-xs">Reset North (Rotate with Alt+Shift+Drag)</p>
+            <p className="text-xs">Arahkan ke utara (putar dengan Alt+Shift+seret)</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

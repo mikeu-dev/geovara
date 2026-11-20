@@ -1,44 +1,33 @@
 'use client';
+
 import type React from 'react';
 
-import { useEffect, useState } from 'react';
-import { cloudLayout } from '@/lib/cloud-shape';
-
 interface CloudShellProps {
-  leftWidth: number;
-  rightWidth: number;
+  /** SVG path for each smoked-glass piece, in viewport pixels. */
+  pieces: string[];
+  width: number;
+  height: number;
 }
 
 /**
- * Renders the three interlocking smoked-glass pieces (left sidebar, header,
- * right sidebar) as one decorative layer. Content is positioned on top of it
- * by the page; this layer never takes pointer events.
+ * Renders the interlocking smoked-glass pieces as one decorative layer. The page
+ * computes their outlines (desktop or mobile) and positions content on top; this
+ * layer never takes pointer events. Paths morph with CSS when the outline changes.
  */
-export default function CloudShell({ leftWidth, rightWidth }: CloudShellProps) {
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-
-  useEffect(() => {
-    const update = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-
-  if (!size) return null;
-  const { w, h } = size;
-  const shape = cloudLayout(w, h, leftWidth, rightWidth);
-  const pieces = [shape.left, shape.head, shape.right];
+export default function CloudShell({ pieces, width: w, height: h }: CloudShellProps) {
+  if (!w || !h) return null;
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
-      <svg
-        className="cloud-shadow absolute inset-0"
-        width={w}
-        height={h}
-        viewBox={`0 0 ${w} ${h}`}
-      >
+      <svg className="cloud-shadow absolute inset-0" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         {pieces.map((d, i) => (
-          <path key={i} className="cloud-morph" style={{ d: `path('${d}')` } as React.CSSProperties} fill="rgb(var(--smoke-light))" fillOpacity={0.7} />
+          <path
+            key={i}
+            className="cloud-morph"
+            style={{ d: `path('${d}')` } as React.CSSProperties}
+            fill="rgb(var(--smoke-light))"
+            fillOpacity={0.7}
+          />
         ))}
       </svg>
       {pieces.map((d, i) => (

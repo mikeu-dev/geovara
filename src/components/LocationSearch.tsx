@@ -8,6 +8,7 @@ import { fromLonLat } from 'ol/proj';
 import { Search, MapPin, Loader2, X, Plus } from 'lucide-react';
 import { nominatimSearchUrl, nominatimSearchResults } from '@/lib/nominatim';
 import { useToast } from '@/hooks/use-toast';
+import { CLOUD_MOBILE, MOTION } from '@/lib/cloud-shape';
 
 interface SearchResult {
   place_id: number;
@@ -21,9 +22,19 @@ interface SearchResult {
 interface LocationSearchProps {
   map: Map | null;
   onAddFeature?: (feature: Feature<Geometry>) => void;
+  /** Mobile: an icon in the header that expands into the field. */
+  compact?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function LocationSearch({ map, onAddFeature }: LocationSearchProps) {
+export default function LocationSearch({
+  map,
+  onAddFeature,
+  compact = false,
+  open: fieldOpen = true,
+  onOpenChange,
+}: LocationSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,14 +119,14 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
         const extent = [...fromLonLat([west, south]), ...fromLonLat([east, north])];
         map.getView().fit(extent as [number, number, number, number], {
           padding: [50, 50, 50, 50],
-          duration: 1200,
+          duration: MOTION.camera,
           maxZoom: 18,
         });
       } else {
         map.getView().animate({
           center,
           zoom: 14,
-          duration: 1200,
+          duration: MOTION.camera,
         });
       }
 
@@ -162,29 +173,42 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
     setIsOpen(false);
   }, []);
 
+  const expanded = !compact || fieldOpen;
+  const M = CLOUD_MOBILE;
+  const box: React.CSSProperties = compact
+    ? {
+        top: M.margin + 7,
+        right: M.margin + M.tabW + M.gap + 8,
+        width: fieldOpen ? 'calc(100vw - 144px)' : 44,
+      }
+    : {
+        top: 26,
+        left: 'calc((var(--map-l, 0px) + 100vw - var(--map-r, 0px)) / 2)',
+        width: 'min(380px, calc(100vw - 268px))',
+      };
+
   return (
     <div
       ref={containerRef}
-      className="cloud-move cloud-spring absolute top-[26px] z-40 -translate-x-1/2"
-      style={{
-        left: 'calc((var(--map-l, 0px) + 100vw - var(--map-r, 0px)) / 2)',
-        width: 'min(380px, calc(100vw - 268px))',
-      }}
+      className={`cloud-move cloud-spring absolute z-40 ${compact ? '' : '-translate-x-1/2'}`}
+      style={box}
     >
       <label
         className={`
-        flex items-center gap-2.5 h-12 pl-4 pr-3 rounded-cloud-a bg-smoke-mid/55 text-muted-foreground
-        transition-shadow duration-200
+        relative flex items-center gap-2.5 ${compact ? 'h-11 pl-3.5 pr-11' : 'h-12 pl-4 pr-2'} rounded-cloud-a text-muted-foreground
+        transition-[background-color,box-shadow] duration-micro overflow-hidden
+        ${expanded ? (compact ? 'bg-smoke-well/90' : 'bg-smoke-mid/55') : 'bg-transparent'}
         ${isFocused ? 'ring-2 ring-primary/50' : ''}
       `}
       >
-        <Search className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.8} />
+        {!compact && <Search className="h-[18px] w-[18px] flex-shrink-0" strokeWidth={1.8} />}
         <span className="sr-only">Cari lokasi</span>
         <input
           ref={inputRef}
           type="search"
-          placeholder="Cari lokasi atau fitur…"
+          placeholder={compact ? 'Cari lokasi…' : 'Cari lokasi atau fitur…'}
           value={query}
+          tabIndex={expanded ? 0 : -1}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
@@ -192,27 +216,46 @@ export default function LocationSearch({ map, onAddFeature }: LocationSearchProp
             if (e.key === 'Escape') {
               handleClear();
               (e.target as HTMLInputElement).blur();
+              if (compact) onOpenChange?.(false);
             }
           }}
-          className="flex-1 min-w-0 bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground outline-none [&::-webkit-search-cancel-button]:hidden"
+          className={`cloud-fade flex-1 min-w-0 bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground outline-none [&::-webkit-search-cancel-button]:hidden ${
+            expanded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
-        {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+        {isLoading && <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-muted-foreground" />}
         {query && !isLoading && (
           <button
             type="button"
             onClick={handleClear}
             aria-label="Hapus pencarian"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-cloud-sb text-muted-foreground hover:text-foreground hover:bg-smoke-well/70 transition-colors"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
-        {!query && !isLoading && (
-          <kbd className="hidden sm:inline font-mono text-[11px] font-semibold px-2 py-0.5 rounded-cloud-sb bg-smoke-well/70 text-foreground">
+        {!compact && !query && !isLoading && (
+          <kbd className="hidden sm:inline mr-1 font-mono text-[11px] font-semibold px-2 py-0.5 rounded-cloud-sb bg-smoke-well/70 text-foreground">
             /
           </kbd>
         )}
       </label>
+      {compact && (
+        <button
+          type="button"
+          onClick={() => {
+            const next = !fieldOpen;
+            onOpenChange?.(next);
+            if (next) setTimeout(() => inputRef.current?.focus(), 50);
+            else handleClear();
+          }}
+          aria-label={fieldOpen ? 'Tutup pencarian' : 'Cari lokasi'}
+          aria-expanded={fieldOpen}
+          className="absolute right-0 top-0 w-11 h-11 flex items-center justify-center text-foreground"
+        >
+          {fieldOpen ? <X className="h-[18px] w-[18px]" strokeWidth={1.8} /> : <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />}
+        </button>
+      )}
 
       {isOpen && results.length > 0 && (
         <div className="mt-2 rounded-cloud-b overflow-hidden glass-smoke float-shadow animate-fade-in-up">

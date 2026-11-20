@@ -4,19 +4,27 @@ import { useEffect, useState, useRef } from 'react';
 import { Map, MapBrowserEvent } from 'ol';
 import { toLonLat } from 'ol/proj';
 import { ScaleLine } from 'ol/control';
-import { CLOUD } from '@/lib/cloud-shape';
+import { CLOUD, CLOUD_MOBILE } from '@/lib/cloud-shape';
 
 interface StatusBarProps {
   map: Map | null;
   projection: string;
   is3d?: boolean;
+  layout?: 'desktop' | 'mobile';
+  /** Scale / coordinate slot box from the cloud layout (desktop). */
+  slot?: { left: number; width: number; height: number } | null;
 }
 
-export default function StatusBar({ map, projection, is3d = false }: StatusBarProps) {
+export default function StatusBar({
+  map,
+  projection,
+  is3d = false,
+  layout = 'desktop',
+  slot = null,
+}: StatusBarProps) {
   const [zoom, setZoom] = useState<number>(2);
   const [coords, setCoords] = useState<string>('0.0000, 0.0000');
   const [altitude, setAltitude] = useState<string>('12,000 km');
-  const scaleLineRef = useRef<ScaleLine | null>(null);
   const scaleTargetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,16 +61,6 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
     };
     map.on('pointermove', handlePointerMove);
 
-    // Add scale line
-    if (!scaleLineRef.current) {
-      scaleLineRef.current = new ScaleLine({
-        units: 'metric',
-        bar: false,
-        minWidth: 80,
-        target: scaleTargetRef.current ?? undefined,
-      });
-      map.addControl(scaleLineRef.current);
-    }
 
     return () => {
       view.un('change:resolution', updateZoomAndAlt);
@@ -70,23 +68,62 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
     };
   }, [map]);
 
+  // The scale bar renders into whichever slot element is mounted; re-attach it
+  // when that element changes (desktop ↔ mobile) so it never goes missing.
+  useEffect(() => {
+    if (!map || !scaleTargetRef.current) return;
+    const control = new ScaleLine({
+      units: 'metric',
+      bar: false,
+      // Keep the bar inside the 100px collapsed slot at every zoom: an uncapped
+      // bar grows past the slot after a zoom-to-feature and gets clipped away.
+      minWidth: 48,
+      maxWidth: 68,
+      target: scaleTargetRef.current,
+    });
+    map.addControl(control);
+    return () => {
+      map.removeControl(control);
+    };
+  }, [map, layout]);
+
+  const modeLabel = is3d ? '3D · globe' : '2D · presisi';
+
+  if (layout === 'mobile') {
+    return (
+      <>
+        <div ref={scaleTargetRef} className="hidden" />
+        <div
+          className="absolute z-30 font-mono text-xs font-medium text-muted-foreground whitespace-nowrap"
+          style={{ left: CLOUD_MOBILE.margin + 16, bottom: CLOUD_MOBILE.margin + 15, height: 16 }}
+        >
+          {modeLabel} · Z {Math.round(zoom)}
+        </div>
+      </>
+    );
+  }
+
+  const wide = (slot?.width ?? 0) > CLOUD.tabW;
+
   return (
     <>
       {/* Scale & coordinates: the separate glass piece in the left sidebar's notch */}
       <div
         className="glass-smoke float-shadow cloud-move absolute z-30 flex flex-col justify-center gap-1.5 px-4 overflow-hidden whitespace-nowrap font-mono text-[11px] font-medium text-muted-foreground"
         style={{
-          left: CLOUD.margin,
+          left: slot?.left ?? CLOUD.margin,
           bottom: CLOUD.margin,
-          height: CLOUD.footH - CLOUD.gap,
-          width: 'var(--slot-w, 0px)',
-          opacity: 'var(--slot-o, 0)',
+          height: slot?.height ?? 0,
+          width: slot?.width ?? 0,
           borderRadius: '22px 22px 22px 30px',
         }}
       >
         <div ref={scaleTargetRef} className="geovara-scale" />
-        <span>Z {Math.round(zoom)}{is3d ? ` · alt ${altitude}` : ''}</span>
-        <span>{coords}</span>
+        <span>
+          Z {Math.round(zoom)}
+          {is3d && wide ? ` · alt ${altitude}` : ''}
+        </span>
+        {wide && <span>{coords}</span>}
       </div>
 
       {/* Mode pill centred in the map window */}
@@ -95,7 +132,7 @@ export default function StatusBar({ map, projection, is3d = false }: StatusBarPr
         style={{ bottom: 30, left: 'calc((var(--map-l, 0px) + 100vw - var(--map-r, 0px)) / 2)' }}
       >
         <span className="px-2.5 py-0.5 rounded-cloud-sb bg-primary/10 text-primary font-semibold">
-          {is3d ? '3D · globe' : '2D · presisi'}
+          {modeLabel}
         </span>
         <span>{is3d ? 'WGS84' : projection}</span>
       </div>

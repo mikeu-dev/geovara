@@ -128,7 +128,7 @@ export default function FileDropZone({ onFileLoad }: FileDropZoneProps) {
       onDrop={handleDrop}
       className={`
         relative flex items-center gap-3 p-3.5 text-left cursor-pointer rounded-cloud-b
-        border-[1.5px] border-dashed transition-all duration-200 ease-out
+        border-[1.5px] border-dashed transition-all duration-micro ease-out
         ${
           isDragging
             ? 'border-primary bg-primary/10 scale-[1.02]'

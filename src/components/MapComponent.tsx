@@ -1,7 +1,9 @@
 'use client';
 
+import { MOTION } from '@/lib/cloud-shape';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Overlay, Feature } from 'ol';
+import { getCenter } from 'ol/extent';
 import type { Geometry } from 'ol/geom';
 import { Stroke, Style } from 'ol/style';
 import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer';
@@ -46,6 +48,18 @@ interface MapProps {
   cesiumEnableAtmosphere?: boolean;
   cesiumAtmosphereSaturationShift?: number;
   cesiumAtmosphereBrightnessShift?: number;
+  /** Where map chrome sits between the cloud pieces (from the page's cloud layout). */
+  chrome: MapChrome;
+}
+
+export interface MapChrome {
+  layout: 'desktop' | 'mobile';
+  rail: { top: number; right: number; maxHeight: number; hidden: boolean };
+  /** Scale / coordinate slot in the left piece's notch (desktop only). */
+  slot: { left: number; width: number; height: number } | null;
+  /** Mobile search starts as an icon in the header and expands on demand. */
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
 }
 
 export default function MapComponent({
@@ -70,6 +84,7 @@ export default function MapComponent({
   cesiumEnableAtmosphere,
   cesiumAtmosphereSaturationShift,
   cesiumAtmosphereBrightnessShift,
+  chrome,
 }: MapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
   const popupElement = useRef<HTMLDivElement>(null);
@@ -122,7 +137,7 @@ export default function MapComponent({
     if (!map || !popupElement.current) return;
     const popupOverlay = new Overlay({
       element: popupElement.current,
-      autoPan: { animation: { duration: 250 } },
+      autoPan: { animation: { duration: MOTION.morph } },
     });
     map.addOverlay(popupOverlay);
 
@@ -138,7 +153,7 @@ export default function MapComponent({
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedFeature) {
           onDeleteFeature(selectedFeature.getId());
-          toast({ title: 'Feature deleted', description: `ID: ${selectedFeature.getId()}` });
+          toast({ title: 'Fitur dihapus', description: `ID: ${selectedFeature.getId()}` });
         }
       }
     };
@@ -159,29 +174,19 @@ export default function MapComponent({
     if (overlay) {
       const geometry = selectedFeature.getGeometry();
       if (geometry) {
-        let coordinate: number[] | undefined;
-
-        // Use a more specific interface for cross-geometry coordinate extraction
-        interface GeometryWithCenter {
-          getInteriorPoint?: () => { getCoordinates: () => number[] };
-          getCenter?: () => number[];
-          getCoordinates?: () => number[] | number[][] | number[][][];
+        // Anchor the popup ABOVE the feature so it never covers it: just over the
+        // top of its extent, or 120px above its centre for large features.
+        const extent = geometry.getExtent();
+        const centre = getCenter(extent);
+        const centrePx = map.getPixelFromCoordinate(centre);
+        const topPx = map.getPixelFromCoordinate([centre[0], extent[3]]);
+        if (centrePx && topPx) {
+          const anchorY = Math.max(topPx[1] - 16, centrePx[1] - 120);
+          const anchor = map.getCoordinateFromPixel([centrePx[0], anchorY]);
+          if (anchor) overlay.setPosition(anchor);
+        } else {
+          overlay.setPosition(centre);
         }
-
-        const geom = geometry as unknown as GeometryWithCenter;
-
-        if (typeof geom.getInteriorPoint === 'function') {
-          const interiorPoint = geom.getInteriorPoint();
-          if (interiorPoint) coordinate = interiorPoint.getCoordinates();
-        } else if (typeof geom.getCenter === 'function') {
-          coordinate = geom.getCenter();
-        } else if (typeof geom.getCoordinates === 'function') {
-          const coords = geom.getCoordinates();
-          if (coords) {
-            coordinate = Array.isArray(coords[0]) ? (coords[0] as number[]) : (coords as number[]);
-          }
-        }
-        if (coordinate) overlay.setPosition(coordinate);
       }
     }
   }, [selectedFeature, isPopupOpen, map]);
@@ -243,7 +248,7 @@ export default function MapComponent({
       const geometry = feature.getGeometry();
       if (geometry) {
         map.getView().fit(geometry.getExtent(), {
-          duration: 1000,
+          duration: MOTION.camera,
           padding: [50, 50, 50, 50],
           maxZoom: 18,
         });
@@ -336,11 +341,25 @@ export default function MapComponent({
       {/* Floating Contextual Cursor Guide */}
       <CursorGuide drawType={drawType} snappingEnabled={snappingEnabled} />
 
-      <LocationSearch map={map} onAddFeature={handleAddFeature} />
+      <LocationSearch
+        map={map}
+        onAddFeature={handleAddFeature}
+        compact={chrome.layout === 'mobile'}
+        open={chrome.searchOpen}
+        onOpenChange={chrome.onSearchOpenChange}
+      />
       {/* Draw rail floats inside the map window, beside the spatial manager */}
       <div
-        className="cloud-move absolute flex flex-col gap-3 z-30 items-end"
-        style={{ top: 114, right: 'calc(var(--map-r, 0px) + 16px)' }}
+        className="cloud-move cloud-fade absolute flex flex-col gap-3 z-30 items-end overflow-y-auto overflow-x-hidden overscroll-contain p-1 -m-1"
+        style={{
+          top: chrome.rail.top,
+          right: chrome.rail.right,
+          maxHeight: chrome.rail.maxHeight,
+          opacity: chrome.rail.hidden ? 0 : 1,
+          transform: `translateX(${chrome.rail.hidden ? 30 : 0}px)`,
+          pointerEvents: chrome.rail.hidden ? 'none' : 'auto',
+        }}
+        aria-hidden={chrome.rail.hidden}
       >
         <Compass map={map} />
         <DrawingTools
@@ -373,7 +392,7 @@ export default function MapComponent({
 
       <div
         className="cloud-move absolute flex flex-col gap-2 items-end z-30"
-        style={{ bottom: 92, right: 'calc(var(--map-r, 0px) + 16px)' }}
+        style={{ bottom: chrome.layout === 'mobile' ? 'calc(var(--cloud-bottom) + 12px)' : 92, right: chrome.rail.right }}
       >
         <MeasurementController
           map={map}
@@ -403,7 +422,7 @@ export default function MapComponent({
         />
       </div>
 
-      <StatusBar map={map} projection={projection} is3d={is3d} />
+      <StatusBar map={map} projection={projection} is3d={is3d} layout={chrome.layout} slot={chrome.slot} />
 
       {/* Spatial Tools Dialog */}
       <SpatialToolsDialog

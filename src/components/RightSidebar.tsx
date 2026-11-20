@@ -16,7 +16,8 @@ import {
   MapPin,
   Shapes,
 } from 'lucide-react';
-import { CLOUD, footWidth } from '@/lib/cloud-shape';
+import { CLOUD, CLOUD_MOBILE, type DesktopLayout } from '@/lib/cloud-shape';
+import { SHEET_TABS_H } from './MobileSheet';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Button } from './ui/button';
@@ -27,12 +28,9 @@ import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
 import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
-import { getArea, getLength } from 'ol/sphere';
+import { measureFeature } from '@/lib/measure';
 import { GisService } from '@/lib/spatial';
-import {
-  parseGeoJsonStringInWorker,
-  shouldParseGeoJsonInWorker,
-} from '@/lib/geojson-worker-parse';
+import { parseGeoJsonStringInWorker, shouldParseGeoJsonInWorker } from '@/lib/geojson-worker-parse';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +66,10 @@ interface RightSidebarProps {
   /** Whether the manager piece is expanded (350px) or collapsed to its 100px rail. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Desktop shell geometry for the current state. */
+  layout: DesktopLayout;
+  /** On mobile the feature list renders inside the bottom sheet's "Fitur" tab. */
+  sheet?: { active: boolean; top: number } | null;
 }
 
 const TOP = CLOUD.margin + CLOUD.headerH + CLOUD.gap;
@@ -84,26 +86,50 @@ function GeomIcon({ type, className }: { type?: string; className?: string }) {
   return <Shapes {...props} />;
 }
 
+const GEOM_LABEL: Record<string, string> = {
+  Point: 'Titik',
+  MultiPoint: 'Multi-titik',
+  LineString: 'Garis',
+  MultiLineString: 'Multi-garis',
+  Polygon: 'Poligon',
+  MultiPolygon: 'Multi-poligon',
+  Circle: 'Lingkaran',
+  GeometryCollection: 'Koleksi geometri',
+};
+const geomLabel = (t?: string) => (t ? (GEOM_LABEL[t] ?? t) : '');
+
+/** Generated ids look like `Rectangle_1715…` or `buffer_1715…`; name them by what made them. */
+const ID_PREFIX_LABEL: [RegExp, string][] = [
+  [/^rectangle/i, 'Persegi'],
+  [/^circle/i, 'Lingkaran'],
+  [/^buffer/i, 'Buffer'],
+  [/^union/i, 'Gabungan'],
+  [/^centroid/i, 'Titik tengah'],
+  [/^convex_hull/i, 'Hull'],
+  [/^bbox/i, 'Kotak batas'],
+];
+
+function featureLabel(id: string | number | undefined, geomType: string | undefined, idx: number) {
+  const n = idx + 1;
+  const sid = id === undefined ? '' : String(id);
+  const hit = ID_PREFIX_LABEL.find(([re]) => re.test(sid));
+  if (hit) return `${hit[1]} ${n}`;
+  if (sid && !/_\d{6,}/.test(sid) && !/^f(eature)?_/.test(sid) && !/^dev_f_/.test(sid)) return sid;
+  return `${geomLabel(geomType) || 'Fitur'} ${n}`;
+}
+
 function featureSummary(feature: Feature<Geometry>, idx: number) {
-  const geom = feature.getGeometry();
-  const geomType = geom?.getType();
-  let stat = '';
-  if (geom && (geomType === 'Polygon' || geomType === 'MultiPolygon')) {
-    const area = getArea(geom);
-    stat = area > 1e6 ? `${(area / 1e6).toFixed(2)} km²` : area > 1e4 ? `${(area / 1e4).toFixed(1)} ha` : `${area.toFixed(0)} m²`;
-  } else if (geom && (geomType === 'LineString' || geomType === 'MultiLineString')) {
-    const len = getLength(geom);
-    stat = len > 1000 ? `${(len / 1000).toFixed(2)} km` : `${len.toFixed(0)} m`;
-  } else if (geomType?.includes('Point')) {
-    stat = 'titik';
-  }
+  const geomType = feature.getGeometry()?.getType();
+  const stat = measureFeature(feature)?.label ?? '';
   const props = Object.entries(feature.getProperties()).filter(
     ([k, v]) => k !== 'geometry' && v !== null && v !== undefined && typeof v !== 'object'
   );
-  const nameEntry = props.find(([k]) => ['name', 'nama', 'title', 'label'].includes(k.toLowerCase()));
-  const name = nameEntry ? String(nameEntry[1]) : String(feature.getId() ?? `Fitur ${idx + 1}`);
+  const nameEntry = props.find(([k]) =>
+    ['name', 'nama', 'title', 'label'].includes(k.toLowerCase())
+  );
+  const name = nameEntry ? String(nameEntry[1]) : featureLabel(feature.getId(), geomType, idx);
   const firstOther = props.find(([k]) => k !== nameEntry?.[0]);
-  const sub = [geomType, firstOther ? String(firstOther[1]) : null].filter(Boolean).join(' · ');
+  const sub = [geomLabel(geomType), firstOther ? String(firstOther[1]) : null].filter(Boolean).join(' · ');
   const attrs = props.filter(([k]) => k !== nameEntry?.[0]).slice(0, 3);
   return { geomType, stat, name, sub, attrs };
 }
@@ -128,12 +154,14 @@ export default function RightSidebar({
   selectedFeature = null,
   open,
   onOpenChange,
+  layout,
+  sheet = null,
 }: RightSidebarProps) {
   const { toast } = useToast();
   const [featureToDelete, setFeatureToDelete] = useState<string | number | null>(null);
   const [tab, setTab] = useState<'features' | 'layers'>('features');
-  const width = open ? CLOUD.rightW : CLOUD.tabW;
-  const footW = footWidth(width);
+  const width = layout.rw;
+  const footW = layout.rightFootW;
   const selectedId = selectedFeature?.getId();
 
   const handleConfirmDeleteFeature = (id: string | number | null) => {
@@ -143,23 +171,242 @@ export default function RightSidebar({
     }
   };
 
+  const deleteDialog = (
+    <>
+      {/* Delete Single Feature Confirmation Dialog */}
+      <AlertDialog
+        open={featureToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setFeatureToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Fitur?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini akan menghapus fitur <code>{String(featureToDelete ?? '')}</code> dari
+              peta dan editor secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => handleConfirmDeleteFeature(featureToDelete)}
+            >
+              Hapus Fitur
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+
+  const featuresBody = (
+    <div className="flex flex-col gap-2 pb-1">
+      <FileDropZone
+        onFileLoad={async (content, filename) => {
+          const lower = filename.toLowerCase();
+          const isTopo = lower.endsWith('.topojson');
+          const isKml = lower.endsWith('.kml');
+          const canTryWorker = !isKml && !isTopo && shouldParseGeoJsonInWorker(content.length);
+
+          onHeavyParseChange?.(true);
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+          try {
+            let geojsonStr = content;
+            if (isKml) {
+              const kmlFeatures = kmlFormat.readFeatures(content, {
+                featureProjection: 'EPSG:3857',
+              });
+              const gjFormat = new GeoJSON({
+                featureProjection: 'EPSG:3857',
+                dataProjection: 'EPSG:4326',
+              });
+              geojsonStr = gjFormat.writeFeatures(kmlFeatures as Feature<Geometry>[]);
+            } else if (isTopo) {
+              const topology = JSON.parse(content);
+              const fc = GisService.fromTopoJSON(topology);
+              geojsonStr = JSON.stringify(fc, null, 2);
+            } else if (canTryWorker) {
+              const parsed = await parseGeoJsonStringInWorker(content);
+              geojsonStr = JSON.stringify(parsed, null, 2);
+            } else {
+              try {
+                const parsed = JSON.parse(content);
+                geojsonStr = JSON.stringify(parsed, null, 2);
+              } catch {
+                geojsonStr = content;
+              }
+            }
+            onGeojsonChange(geojsonStr);
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('map:fitbounds'));
+            }, 60);
+            toast({ title: `${filename} diimpor` });
+          } catch {
+            toast({
+              title: 'Impor gagal',
+              description: 'Berkas tidak dapat dibaca.',
+              variant: 'destructive',
+            });
+          } finally {
+            onHeavyParseChange?.(false);
+          }
+        }}
+      />
+
+      {features.length === 0 ? (
+        <p className="text-center py-6 text-muted-foreground text-sm">
+          Belum ada fitur digambar atau diimpor.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {features.map((feature, idx) => {
+            const { geomType, stat, name, sub, attrs } = featureSummary(feature, idx);
+            const id = feature.getId();
+            const on = id !== undefined && id === selectedId;
+            return (
+              <li
+                key={id ?? idx}
+                className="cloud-move cloud-spring overflow-hidden"
+                style={{
+                  borderRadius: idx % 2 ? CB : CA,
+                  background: on ? 'rgb(var(--well) / 0.88)' : 'rgb(var(--well) / 0.5)',
+                  boxShadow: on
+                    ? '0 6px 16px rgb(var(--shadow-ink) / 0.14), inset 0 0 0 1.5px hsl(var(--primary))'
+                    : 'inset 0 0 0 1px rgb(var(--glass-edge) / 0.7)',
+                }}
+              >
+                <button
+                  type="button"
+                  aria-expanded={on}
+                  onClick={() => {
+                    onFeatureSelect(on ? null : feature);
+                    if (!on && id !== undefined) onZoomToFeature(id);
+                  }}
+                  className="w-full h-[60px] flex items-center gap-2.5 px-3 text-left text-foreground"
+                >
+                  <span
+                    className="cloud-move cloud-spring w-9 h-9 flex-shrink-0 flex items-center justify-center"
+                    style={{
+                      borderRadius: on ? (idx % 2 ? CAS : CBS) : idx % 2 ? CBS : CAS,
+                      background: on ? 'hsl(var(--primary))' : 'rgb(var(--smoke-mid) / 0.55)',
+                      color: on ? 'hsl(var(--primary-foreground))' : 'hsl(var(--ember))',
+                    }}
+                  >
+                    <GeomIcon type={geomType} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span className="text-[15px] font-extrabold truncate">{name}</span>
+                    <span className="text-xs text-muted-foreground truncate">{sub}</span>
+                  </span>
+                  {stat && (
+                    <span className="font-mono text-[11px] font-medium text-muted-foreground flex-shrink-0">
+                      {stat}
+                    </span>
+                  )}
+                </button>
+                {on && (
+                  <div className="animate-fade-in-up px-3 pb-3 flex flex-col gap-2">
+                    {attrs.length > 0 && (
+                      <dl className="grid grid-cols-3 gap-1.5">
+                        {attrs.map(([k, v], j) => (
+                          <div
+                            key={k}
+                            className="px-2.5 py-2 bg-smoke-well/70 min-w-0"
+                            style={{ borderRadius: j % 2 ? CBS : CAS }}
+                          >
+                            <dt className="font-mono text-[10px] font-medium text-muted-foreground truncate">
+                              {k}
+                            </dt>
+                            <dd className="mt-0.5 text-[13px] font-extrabold truncate">
+                              {String(v)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    <div className="flex gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 rounded-cloud-sa bg-smoke-well/70 font-extrabold"
+                        onClick={() => id !== undefined && onZoomToFeature(id)}
+                      >
+                        <Crosshair className="h-3.5 w-3.5" />
+                        Perbesar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 rounded-cloud-sb bg-smoke-well/70 font-extrabold text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setFeatureToDelete(id ?? null)}
+                        aria-label={`Hapus fitur ${name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Hapus
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  if (sheet) {
+    return (
+      <>
+        <section
+          aria-label="Fitur"
+          hidden={!sheet.active}
+          className="cloud-move absolute z-30 overflow-y-auto"
+          style={{
+            left: CLOUD_MOBILE.margin + 12,
+            right: CLOUD_MOBILE.margin + 12,
+            top: sheet.top + SHEET_TABS_H,
+            bottom: CLOUD_MOBILE.margin + CLOUD_MOBILE.footH + 6,
+          }}
+        >
+          <TooltipProvider>{featuresBody}</TooltipProvider>
+        </section>
+        {deleteDialog}
+      </>
+    );
+  }
+
   return (
     <>
       {/* Toggle sits in the right piece's tab, under the header's step */}
       <div
         className="absolute z-30 flex items-center justify-center"
-        style={{ right: CLOUD.margin, top: CLOUD.margin + CLOUD.stepH + CLOUD.gap, width: CLOUD.tabW, height: 36 }}
+        style={{
+          right: CLOUD.margin,
+          top: CLOUD.margin + CLOUD.stepH + CLOUD.gap,
+          width: CLOUD.tabW,
+          height: 36,
+        }}
       >
         <button
           type="button"
           onClick={() => onOpenChange(!open)}
           aria-label={open ? 'Ciutkan manager spasial' : 'Buka manager spasial'}
           aria-expanded={open}
-          className={`w-11 h-8 flex items-center justify-center rounded-cloud-sb transition-colors duration-300 ${
-            open ? 'bg-smoke-mid/55 text-foreground hover:bg-smoke-mid' : 'bg-primary text-primary-foreground'
+          className={`w-11 h-9 flex items-center justify-center rounded-cloud-sb transition-colors duration-micro ${
+            open
+              ? 'bg-smoke-mid/55 text-foreground hover:bg-smoke-mid'
+              : 'bg-primary text-primary-foreground'
           }`}
         >
-          <span className="cloud-move cloud-spring flex" style={{ transform: `rotate(${open ? 0 : 180}deg)` }}>
+          <span
+            className="cloud-move cloud-spring flex"
+            style={{ transform: `rotate(${open ? 0 : 180}deg)` }}
+          >
             <ChevronRight className="h-4 w-4" strokeWidth={2} />
           </span>
         </button>
@@ -168,7 +415,7 @@ export default function RightSidebar({
       <section
         aria-label="Manager spasial"
         className="cloud-move absolute z-30 overflow-hidden select-none"
-        style={{ right: CLOUD.margin, top: TOP, bottom: TOP, width }}
+        style={{ right: CLOUD.margin, top: TOP, bottom: layout.rightBodyBottom, width }}
       >
         <div
           className="cloud-fade absolute inset-y-0 right-0 flex flex-col gap-3 pt-3 pb-[18px] pl-4 pr-[22px]"
@@ -195,7 +442,10 @@ export default function RightSidebar({
                 <span
                   aria-hidden="true"
                   className="cloud-move cloud-spring absolute top-1 bottom-1 w-[calc(50%-4px)] bg-smoke-well/90 shadow-[0_3px_8px_rgb(var(--shadow-ink)/0.12)]"
-                  style={{ left: tab === 'features' ? 4 : '50%', borderRadius: tab === 'features' ? CBS : CAS }}
+                  style={{
+                    left: tab === 'features' ? 4 : '50%',
+                    borderRadius: tab === 'features' ? CBS : CAS,
+                  }}
                 />
                 <TabsTrigger
                   value="features"
@@ -212,158 +462,11 @@ export default function RightSidebar({
               </TabsList>
 
               {/* Features Tab */}
-              <TabsContent value="features" className="flex-1 mt-3 overflow-y-auto min-h-0 -mx-1 px-1">
-                <div className="flex flex-col gap-2 pb-1">
-                  <FileDropZone
-                    onFileLoad={async (content, filename) => {
-                      const lower = filename.toLowerCase();
-                      const isTopo = lower.endsWith('.topojson');
-                      const isKml = lower.endsWith('.kml');
-                      const canTryWorker =
-                        !isKml && !isTopo && shouldParseGeoJsonInWorker(content.length);
-
-                      onHeavyParseChange?.(true);
-                      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-
-                      try {
-                        let geojsonStr = content;
-                        if (isKml) {
-                          const kmlFeatures = kmlFormat.readFeatures(content, {
-                            featureProjection: 'EPSG:3857',
-                          });
-                          const gjFormat = new GeoJSON({
-                            featureProjection: 'EPSG:3857',
-                            dataProjection: 'EPSG:4326',
-                          });
-                          geojsonStr = gjFormat.writeFeatures(kmlFeatures as Feature<Geometry>[]);
-                        } else if (isTopo) {
-                          const topology = JSON.parse(content);
-                          const fc = GisService.fromTopoJSON(topology);
-                          geojsonStr = JSON.stringify(fc, null, 2);
-                        } else if (canTryWorker) {
-                          const parsed = await parseGeoJsonStringInWorker(content);
-                          geojsonStr = JSON.stringify(parsed, null, 2);
-                        } else {
-                          try {
-                            const parsed = JSON.parse(content);
-                            geojsonStr = JSON.stringify(parsed, null, 2);
-                          } catch {
-                            geojsonStr = content;
-                          }
-                        }
-                        onGeojsonChange(geojsonStr);
-                        setTimeout(() => {
-                          window.dispatchEvent(new CustomEvent('map:fitbounds'));
-                        }, 60);
-                        toast({ title: `Imported ${filename}` });
-                      } catch {
-                        toast({
-                          title: 'Import failed',
-                          description: 'Could not parse the file.',
-                          variant: 'destructive',
-                        });
-                      } finally {
-                        onHeavyParseChange?.(false);
-                      }
-                    }}
-                  />
-
-                  {features.length === 0 ? (
-                    <p className="text-center py-6 text-muted-foreground text-sm">
-                      Belum ada fitur digambar atau diimpor.
-                    </p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {features.map((feature, idx) => {
-                        const { geomType, stat, name, sub, attrs } = featureSummary(feature, idx);
-                        const id = feature.getId();
-                        const on = id !== undefined && id === selectedId;
-                        return (
-                          <li
-                            key={id ?? idx}
-                            className="cloud-move cloud-spring overflow-hidden"
-                            style={{
-                              borderRadius: idx % 2 ? CB : CA,
-                              background: on ? 'rgb(var(--well) / 0.88)' : 'rgb(var(--well) / 0.5)',
-                              boxShadow: on
-                                ? '0 6px 16px rgb(var(--shadow-ink) / 0.14), inset 0 0 0 1.5px hsl(var(--primary))'
-                                : 'inset 0 0 0 1px rgb(var(--glass-edge) / 0.7)',
-                            }}
-                          >
-                            <button
-                              type="button"
-                              aria-expanded={on}
-                              onClick={() => {
-                                onFeatureSelect(on ? null : feature);
-                                if (!on && id !== undefined) onZoomToFeature(id);
-                              }}
-                              className="w-full h-[60px] flex items-center gap-2.5 px-3 text-left text-foreground"
-                            >
-                              <span
-                                className="cloud-move cloud-spring w-9 h-9 flex-shrink-0 flex items-center justify-center"
-                                style={{
-                                  borderRadius: on ? (idx % 2 ? CAS : CBS) : idx % 2 ? CBS : CAS,
-                                  background: on ? 'hsl(var(--primary))' : 'rgb(var(--smoke-mid) / 0.55)',
-                                  color: on ? 'hsl(var(--primary-foreground))' : 'hsl(var(--ember))',
-                                }}
-                              >
-                                <GeomIcon type={geomType} className="h-[18px] w-[18px]" />
-                              </span>
-                              <span className="flex-1 min-w-0 flex flex-col">
-                                <span className="text-[15px] font-extrabold truncate">{name}</span>
-                                <span className="text-xs text-muted-foreground truncate">{sub}</span>
-                              </span>
-                              {stat && (
-                                <span className="font-mono text-[11px] font-medium text-muted-foreground flex-shrink-0">
-                                  {stat}
-                                </span>
-                              )}
-                            </button>
-                            {on && (
-                              <div className="animate-fade-in-up px-3 pb-3 flex flex-col gap-2">
-                                {attrs.length > 0 && (
-                                  <dl className="grid grid-cols-3 gap-1.5">
-                                    {attrs.map(([k, v], j) => (
-                                      <div
-                                        key={k}
-                                        className="px-2.5 py-2 bg-smoke-well/70 min-w-0"
-                                        style={{ borderRadius: j % 2 ? CBS : CAS }}
-                                      >
-                                        <dt className="font-mono text-[10px] font-medium text-muted-foreground truncate">{k}</dt>
-                                        <dd className="mt-0.5 text-[13px] font-extrabold truncate">{String(v)}</dd>
-                                      </div>
-                                    ))}
-                                  </dl>
-                                )}
-                                <div className="flex gap-1.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-9 rounded-cloud-sa bg-smoke-well/70 font-extrabold"
-                                    onClick={() => id !== undefined && onZoomToFeature(id)}
-                                  >
-                                    <Crosshair className="h-3.5 w-3.5" />
-                                    Perbesar
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-9 rounded-cloud-sb bg-smoke-well/70 font-extrabold text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => setFeatureToDelete(id ?? null)}
-                                    aria-label={`Hapus fitur ${name}`}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    Hapus
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
+              <TabsContent
+                value="features"
+                className="flex-1 mt-3 overflow-y-auto min-h-0 -mx-1 px-1"
+              >
+                {featuresBody}
               </TabsContent>
 
               {/* Layers Tab */}
@@ -448,23 +551,74 @@ export default function RightSidebar({
                         <Switch
                           checked={showGraticule}
                           onCheckedChange={() => onToggleGraticule()}
-                          aria-label="Toggle Coordinate Grid (Graticule)"
+                          aria-label="Grid koordinat"
                         />
                       </div>
                     </div>
                   )}
                 </div>
+                <p className="mt-4 px-1 flex flex-wrap gap-x-3 font-mono text-[11px] text-muted-foreground">
+                  <a
+                    href="https://mikeudev.my.id"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center min-h-9 hover:text-foreground"
+                  >
+                    © {new Date().getFullYear()} mikeudev.my.id
+                  </a>
+                  <a
+                    href="https://github.com/mikeu-dev/geovara"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center min-h-9 hover:text-foreground"
+                  >
+                    GitHub
+                  </a>
+                </p>
               </TabsContent>
             </Tabs>
           </TooltipProvider>
         </div>
 
-        {/* Collapsed rail: one chip per feature */}
+        {/* Collapsed rail: tab shortcuts, then one chip per feature */}
         <div
-          className="cloud-fade absolute right-0 top-0 bottom-0 flex flex-col items-center gap-2 pt-3.5 overflow-y-auto"
-          style={{ width: CLOUD.tabW, opacity: open ? 0 : 1, pointerEvents: open ? 'none' : 'auto' }}
+          className="cloud-fade absolute right-0 top-0 bottom-0 flex flex-col items-center gap-2 pt-3.5 pb-3 overflow-y-auto"
+          style={{
+            width: CLOUD.tabW,
+            opacity: open ? 0 : 1,
+            pointerEvents: open ? 'none' : 'auto',
+          }}
           aria-hidden={open}
         >
+          {(
+            [
+              ['features', `Buka fitur (${features.length})`, Shapes, CBS],
+              ['layers', 'Buka lapisan', Layers, CAS],
+            ] as const
+          ).map(([id, label, Icon, rad]) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={label}
+              title={label}
+              onClick={() => {
+                setTab(id);
+                onOpenChange(true);
+              }}
+              className="relative w-[52px] h-[52px] flex-shrink-0 flex items-center justify-center bg-smoke-mid/55 text-muted-foreground hover:bg-smoke-mid transition-colors"
+              style={{ borderRadius: rad }}
+            >
+              <Icon className="h-5 w-5" strokeWidth={1.7} />
+              {id === 'features' && features.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground font-mono text-[10px] font-semibold flex items-center justify-center">
+                  {features.length}
+                </span>
+              )}
+            </button>
+          ))}
+          {features.length > 0 && (
+            <span aria-hidden="true" className="w-8 h-px bg-foreground/15 my-1 flex-shrink-0" />
+          )}
           {features.slice(0, 8).map((feature, idx) => {
             const { geomType, name } = featureSummary(feature, idx);
             const id = feature.getId();
@@ -492,7 +646,9 @@ export default function RightSidebar({
             );
           })}
           {features.length > 8 && (
-            <span className="font-mono text-[11px] text-muted-foreground">+{features.length - 8}</span>
+            <span className="font-mono text-[11px] text-muted-foreground">
+              +{features.length - 8}
+            </span>
           )}
         </div>
       </section>
@@ -505,9 +661,10 @@ export default function RightSidebar({
           height: CLOUD.footH,
           right: CLOUD.margin + width - footW,
           width: footW,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
+          opacity: footW ? 1 : 0,
+          pointerEvents: footW ? 'auto' : 'none',
         }}
+        aria-hidden={!footW}
       >
         {(['Buffer', 'Hull'] as const).map((label, i) => (
           <button
@@ -531,32 +688,7 @@ export default function RightSidebar({
         </button>
       </div>
 
-      {/* Delete Single Feature Confirmation Dialog */}
-      <AlertDialog
-        open={featureToDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setFeatureToDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Fitur?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tindakan ini akan menghapus fitur <code>{String(featureToDelete ?? '')}</code> dari peta
-              dan editor secara permanen.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => handleConfirmDeleteFeature(featureToDelete)}
-            >
-              Hapus Fitur
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deleteDialog}
     </>
   );
 }

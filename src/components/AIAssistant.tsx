@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Loader2, Plus, ChevronRight } from 'lucide-react';
-import { CLOUD } from '@/lib/cloud-shape';
 import { processSpatialIntent, SpatialIntentOutput } from '@/ai/flows/spatial-intent';
 import {
   matchQuickSpatialIntent,
@@ -14,14 +13,30 @@ import { useToast } from '@/hooks/use-toast';
 interface AIAssistantProps {
   onAction: (action: SpatialIntentOutput) => void;
   featureContext?: string;
-  /** Whether the spatial manager is expanded: the pill sits in its notch, else beside its rail. */
-  rightOpen?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Slot (closed) or panel (open) box from the cloud layout, docked bottom-right. */
+  box: { right: number; width: number; height: number };
+  /** Narrow slot: show "Ask" instead of "Ask Geovara". */
+  compact?: boolean;
 }
 
-const QUICK_COMMANDS = ['Fly to Jakarta', 'Buffer all', 'Simplify polygons', 'Switch to satellite'];
+// Each chip is matched instantly by matchQuickSpatialIntent (no AI call needed).
+export const QUICK_COMMANDS = [
+  'Menuju ke Jakarta',
+  'Buat buffer 100 m',
+  'Sederhanakan poligon',
+  'Ganti ke satelit',
+];
 
-export default function AIAssistant({ onAction, featureContext, rightOpen = true }: AIAssistantProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function AIAssistant({
+  onAction,
+  featureContext,
+  open: isOpen,
+  onOpenChange,
+  box,
+  compact = false,
+}: AIAssistantProps) {
   const [query, setQuery] = useState('');
   const [lastQuery, setLastQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,15 +49,15 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        onOpenChange(!isOpen);
       }
       if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
+        onOpenChange(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, onOpenChange]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -74,7 +89,7 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
     }
 
     setIsLoading(true);
-    setLastNarrative('Analyzing your request with Gemini...');
+    setLastNarrative('Menganalisis permintaan dengan Gemini…');
 
     try {
       const result = await processSpatialIntent(query, featureContext);
@@ -104,11 +119,11 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
 
       if (spatialAction.action === 'unknown') {
         setLastNarrative(
-          "I'm not sure how to help with that. Try 'Buffer this by 100m' or 'Fly to Paris'."
+          "Saya belum paham permintaan itu. Coba 'Buat buffer 100 m' atau 'Menuju ke Bandung'."
         );
         toast({
-          title: 'Unknown Command',
-          description: 'Try rephrasing your request.',
+          title: 'Perintah tidak dikenali',
+          description: 'Coba ubah kalimat permintaan Anda.',
           variant: 'destructive',
         });
       } else {
@@ -121,10 +136,10 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
         setQuery('');
       }
     } catch {
-      setLastNarrative('Something went wrong. Please try again.');
+      setLastNarrative('Terjadi kesalahan. Silakan coba lagi.');
       toast({
-        title: 'AI Error',
-        description: 'Failed to process command.',
+        title: 'Kesalahan AI',
+        description: 'Gagal memproses perintah.',
         variant: 'destructive',
       });
     } finally {
@@ -132,36 +147,33 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
     }
   };
 
-  const rightW = rightOpen ? CLOUD.rightW : CLOUD.tabW;
-  const pillH = CLOUD.footH - CLOUD.gap;
-
   return (
     <div
       role="dialog"
       aria-label="Asisten Geovara"
       className="glass-smoke float-shadow cloud-move cloud-spring absolute z-40 overflow-hidden"
       style={{
-        right: rightOpen ? CLOUD.margin : CLOUD.margin + rightW + CLOUD.gap,
-        bottom: CLOUD.margin,
-        width: isOpen ? 'min(380px, calc(100vw - 24px))' : 170,
-        height: isOpen ? 360 : pillH,
+        right: box.right,
+        bottom: box.right,
+        width: box.width,
+        height: box.height,
         borderRadius: isOpen ? 28 : '22px 22px 30px 22px',
       }}
     >
       {/* Collapsed pill */}
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => onOpenChange(true)}
         aria-expanded={false}
         tabIndex={isOpen ? -1 : 0}
         title="Ask Geovara (Ctrl+K)"
         className="cloud-fade absolute inset-0 flex items-center justify-center gap-2 text-[15px] font-black text-foreground"
         style={{ opacity: isOpen ? 0 : 1, pointerEvents: isOpen ? 'none' : 'auto' }}
       >
-        <span className="w-[34px] h-[34px] flex items-center justify-center rounded-cloud-sb bg-ember text-white">
+        <span className="w-[34px] h-[34px] flex-shrink-0 flex items-center justify-center rounded-cloud-sb bg-ember text-white">
           <Sparkles className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </span>
-        Ask Geovara
+        {compact ? 'Ask' : 'Ask Geovara'}
       </button>
 
       {/* Expanded panel */}
@@ -181,13 +193,13 @@ export default function AIAssistant({ onAction, featureContext, rightOpen = true
           </span>
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={() => onOpenChange(false)}
             aria-label="Tutup asisten"
             title="Tutup asisten (Esc)"
             tabIndex={isOpen ? 0 : -1}
-            className="w-10 h-10 flex items-center justify-center rounded-cloud-sb bg-smoke-mid/55 text-foreground rotate-45 hover:bg-smoke-mid transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-cloud-sb bg-smoke-mid/55 text-foreground hover:bg-smoke-mid transition-colors"
           >
-            <Plus className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            <Plus className="h-[18px] w-[18px] rotate-45" strokeWidth={1.8} />
           </button>
         </div>
 

@@ -183,8 +183,8 @@ export default function SpatialToolsDialog({
             mergedFeature.properties = {
               ...(mergedFeature.properties || {}),
               _operation: 'union',
-              fill: 'rgba(147, 51, 234, 0.3)',
-              stroke: '#9333ea',
+              fill: 'rgba(217, 115, 58, 0.25)',
+              stroke: '#D9733A',
               strokeWidth: 2,
             };
             resultCollection = {

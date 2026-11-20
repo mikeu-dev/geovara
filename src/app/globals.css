@@ -24,7 +24,7 @@
     --ember: 22 68% 54%; /* #D9733A bara — icons, lines, fills only */
     --ember-ink: 21 69% 38%; /* #A44D1E — text-safe ember */
     --success: 147 40% 30%; /* #2E6B4A */
-    --destructive: 0 62% 45%;
+    --destructive: 9 52% 40%; /* brick — a warm red that sits in the smoke palette */
     --destructive-foreground: 0 0% 98%;
     --border: 40 6% 80%;
     --input: 40 6% 80%;
@@ -45,6 +45,10 @@
     /* Motion */
     --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
     --ease-morph: cubic-bezier(0.65, 0, 0.25, 1);
+    /* Three duration tokens only: hover/colour, shape morphs, camera moves */
+    --dur-micro: 160ms;
+    --dur-morph: 620ms;
+    --dur-camera: 1000ms;
   }
   .dark {
     --background: 225 6% 12%;
@@ -64,7 +68,7 @@
     --ember: 22 72% 60%;
     --ember-ink: 22 72% 66%;
     --success: 147 40% 60%;
-    --destructive: 0 63% 40%;
+    --destructive: 9 50% 48%;
     --destructive-foreground: 210 40% 98%;
     --border: 225 5% 26%;
     --input: 225 5% 26%;
@@ -104,6 +108,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+}
+
+/*
+ * Everything below is deliberately OUTSIDE @layer: Tailwind drops layered rules whose
+ * selectors never appear in source, and OpenLayers creates .ol-* elements at runtime.
+ */
   /* ─── OpenLayers Controls (sit inside the map window between cloud pieces) ─── */
   .ol-zoom {
     top: calc(var(--cloud-top, 0.75rem) + 16px) !important;
@@ -114,15 +124,15 @@
     flex-direction: column !important;
     gap: 4px !important;
     z-index: 35 !important;
-    transition: left 0.62s var(--ease-morph);
+    transition: left var(--dur-morph) var(--ease-morph);
   }
   .ol-control {
     background-color: transparent;
   }
   .ol-control button {
     background: rgb(var(--glass) / 0.88);
-    backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
     color: hsl(var(--foreground));
     border-radius: 16px 8px 16px 8px;
     border: 0;
@@ -131,8 +141,8 @@
     font-size: 1.1rem;
     font-weight: 800;
     transition:
-      background-color 0.3s ease,
-      color 0.3s ease;
+      background-color var(--dur-micro) ease,
+      color var(--dur-micro) ease;
     box-shadow:
       0 6px 14px rgb(var(--shadow-ink) / 0.14),
       inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
@@ -148,16 +158,34 @@
   .ol-attribution {
     @apply text-[10px] text-foreground/70;
     background: rgb(var(--glass) / 0.88);
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     bottom: calc(var(--cloud-bottom, 0.5rem) + 8px) !important;
     right: calc(var(--map-r, 0.5rem) + 8px) !important;
     border: 0;
     border-radius: 8px 16px 8px 16px;
     padding: 2px 8px;
     z-index: 35 !important;
-    transition: right 0.62s var(--ease-morph);
+    transition: right var(--dur-morph) var(--ease-morph);
   }
+  /* Mobile: pinch to zoom; attribution moves left, clear of the draw rail */
+  [data-layout='mobile'] .ol-zoom {
+    display: none !important;
+  }
+  [data-layout='mobile'] .ol-attribution {
+    left: 16px !important;
+    right: auto !important;
+  }
+  /* Touch targets: 44px on mobile */
+  [data-layout='mobile'] .ol-control button,
+  [data-layout='mobile'] .drawing-tools button,
+  [data-layout='mobile'] .geovara-compass {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
   /* Scale line is rendered into the bottom-left scale slot */
   .geovara-scale .ol-scale-line {
     position: static;
@@ -218,8 +246,8 @@
     padding: 5px;
     border-radius: 26px 14px 26px 14px;
     background: rgb(var(--glass) / 0.88);
-    backdrop-filter: blur(16px) saturate(1.05);
     -webkit-backdrop-filter: blur(16px) saturate(1.05);
+    backdrop-filter: blur(16px) saturate(1.05);
     box-shadow:
       0 6px 14px rgb(var(--shadow-ink) / 0.14),
       inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
@@ -238,9 +266,9 @@
     background-color: transparent;
     border-radius: 16px 8px 16px 8px;
     transition:
-      background-color 0.3s var(--ease-spring),
-      color 0.3s ease,
-      border-radius 0.4s var(--ease-spring);
+      background-color var(--dur-micro) ease,
+      color var(--dur-micro) ease,
+      border-radius var(--dur-morph) var(--ease-spring);
   }
   .drawing-tools button:nth-of-type(even) {
     border-radius: 8px 16px 8px 16px;
@@ -270,8 +298,8 @@
 
   .basemap-switcher.ol-control {
     background: rgb(var(--glass) / 0.88);
-    backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
     border-radius: 24px 12px 24px 12px;
     border: 0;
     position: static;
@@ -285,8 +313,8 @@
   .ol-tooltip {
     position: relative;
     background: hsl(var(--glass-bg));
-    backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     border-radius: 16px 8px 16px 8px;
     color: hsl(var(--foreground));
     padding: 6px 12px;
@@ -357,11 +385,11 @@
   }
 
   .animate-fade-in-up {
-    animation: fadeInUp 0.3s ease-out forwards;
+    animation: fadeInUp var(--dur-micro) ease-out forwards;
   }
 
   .animate-slide-in-left {
-    animation: slideInLeft 0.35s ease-out forwards;
+    animation: slideInLeft var(--dur-morph) var(--ease-morph) forwards;
   }
 
   /* ─── Cloud shell: smoked glass, morphing pieces, motion ─── */
@@ -380,15 +408,15 @@
       drop-shadow(0 1px 2px rgb(var(--shadow-ink) / 0.14));
   }
   .cloud-morph {
-    transition: d 0.75s var(--ease-morph);
+    transition: d var(--dur-morph) var(--ease-morph);
   }
   .cloud-clip {
-    transition: clip-path 0.75s var(--ease-morph);
+    transition: clip-path var(--dur-morph) var(--ease-morph);
   }
   .cloud-move {
     transition-property: left, right, top, bottom, width, height, border-radius, transform, opacity,
       background-color, color;
-    transition-duration: 0.62s;
+    transition-duration: var(--dur-morph);
     transition-timing-function: var(--ease-morph);
   }
   .cloud-spring {
@@ -396,8 +424,8 @@
   }
   .cloud-fade {
     transition:
-      opacity 0.26s ease,
-      transform 0.4s var(--ease-spring);
+      opacity var(--dur-micro) ease,
+      transform var(--dur-morph) var(--ease-spring);
   }
   /* Basemap is desaturated so the smoke stays calm; vector data keeps full colour */
   .geovara-basemap {
@@ -414,7 +442,7 @@
   }
   .animate-cloud-pop {
     transform-origin: 50% 100%;
-    animation: cloud-pop 0.5s var(--ease-spring) both;
+    animation: cloud-pop var(--dur-morph) var(--ease-spring) both;
   }
   @media (prefers-reduced-motion: reduce) {
     .cloud-morph,
@@ -427,12 +455,19 @@
     }
   }
 
+  /* ─── Keyboard focus: slate ring, 2px with 2px offset (components that draw their own
+     ring via focus-visible:outline-none keep theirs; this selector is weaker on purpose) ─── */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   /* ─── Status Pill (floating over the map window) ─── */
   .status-bar {
     border-radius: 24px 12px 24px 12px;
     background: rgb(var(--glass) / 0.88);
-    backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
     box-shadow:
       0 6px 14px rgb(var(--shadow-ink) / 0.14),
       inset 0 0 0 1.5px rgb(var(--glass-edge) / 0.8);
@@ -496,4 +531,4 @@
       100% 100%,
       100% 100% !important;
   }
-}
+

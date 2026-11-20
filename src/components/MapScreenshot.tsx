@@ -100,6 +100,7 @@ export default function MapScreenshot({ map }: MapScreenshotProps) {
             size="sm"
             className="w-8 h-8 rounded-[var(--radius)] p-0 flex items-center justify-center hover:bg-secondary"
             onClick={handleScreenshot}
+            aria-label="Ambil tangkapan layar peta"
           >
             <Camera className="h-4 w-4" />
           </Button>

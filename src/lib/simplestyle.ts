@@ -104,9 +104,9 @@ export function getDefaultSimpleStyle(
     case 'Point':
     case 'MultiPoint':
       return {
-        'marker-color': '#e11d48',
+        'marker-color': '#3E5C8A',
         'marker-size': 'medium',
-        'fill': '#e11d48',
+        'fill': '#3E5C8A',
         'stroke': '#ffffff',
         'stroke-width': 2,
       };
@@ -114,7 +114,7 @@ export function getDefaultSimpleStyle(
     case 'LineString':
     case 'MultiLineString':
       return {
-        'stroke': '#2563eb',
+        'stroke': '#3E5C8A',
         'stroke-width': 3,
         'stroke-opacity': 1,
       };
@@ -123,19 +123,19 @@ export function getDefaultSimpleStyle(
     case 'MultiPolygon':
     case 'Circle':
       return {
-        'fill': '#3b82f6',
-        'fill-opacity': 0.3,
-        'stroke': '#1d4ed8',
+        'fill': '#3E5C8A',
+        'fill-opacity': 0.2,
+        'stroke': '#3E5C8A',
         'stroke-width': 2,
         'stroke-opacity': 1,
       };
 
     default:
       return {
-        'stroke': '#9333ea',
+        'stroke': '#3E5C8A',
         'stroke-width': 2,
-        'fill': '#9333ea',
-        'fill-opacity': 0.25,
+        'fill': '#3E5C8A',
+        'fill-opacity': 0.2,
       };
   }
 }
@@ -155,7 +155,7 @@ export function createSimplestyleForFeature(
     (feature.get('stroke') as string) ||
     (feature.get('stroke-color') as string) ||
     (feature.get('strokeColor') as string) ||
-    '#9333ea';
+    '#3E5C8A';
   const strokeWidth =
     Number(
       feature.get('stroke-width') ??
@@ -166,7 +166,7 @@ export function createSimplestyleForFeature(
   const strokeOpacity = feature.get('stroke-opacity') ?? feature.get('strokeOpacity');
   const stroke = parseColorWithOpacity(
     rawStroke,
-    '#9333ea',
+    '#3E5C8A',
     strokeOpacity !== undefined ? Number(strokeOpacity) : undefined
   );
 
@@ -175,17 +175,17 @@ export function createSimplestyleForFeature(
     (feature.get('fill') as string) ||
     (feature.get('fill-color') as string) ||
     (feature.get('fillColor') as string) ||
-    '#9333ea';
+    '#3E5C8A';
   const rawFillOpacity =
     feature.get('fill-opacity') ??
     feature.get('fillOpacity') ??
     (typeof rawFill === 'string' && (rawFill.startsWith('rgba') || rawFill.startsWith('hsla'))
       ? undefined
-      : 0.25);
+      : 0.2);
   const fill = parseColorWithOpacity(
     rawFill,
-    'rgba(147, 51, 234, 0.25)',
-    rawFillOpacity !== undefined ? Number(rawFillOpacity) : 0.25
+    'rgba(62, 92, 138, 0.2)',
+    rawFillOpacity !== undefined ? Number(rawFillOpacity) : 0.2
   );
 
   // 3. Point / Marker resolution
@@ -229,17 +229,17 @@ export function createSimplestyleForFeature(
     const selectionHalo = new Style({
       image: new CircleStyle({
         radius: radius + 4,
-        fill: new Fill({ color: 'rgba(236, 72, 153, 0.35)' }),
-        stroke: new Stroke({ color: '#ec4899', width: 2.5 }),
+        fill: new Fill({ color: 'rgba(217, 115, 58, 0.35)' }),
+        stroke: new Stroke({ color: '#D9733A', width: 2.5 }),
       }),
     });
     return [selectionHalo, mainStyle];
   }
 
   const selectionHalo = new Style({
-    fill: new Fill({ color: 'rgba(236, 72, 153, 0.15)' }),
+    fill: new Fill({ color: 'rgba(217, 115, 58, 0.15)' }),
     stroke: new Stroke({
-      color: '#ec4899',
+      color: '#D9733A',
       width: strokeWidth + 3.5,
       lineDash: [6, 4],
     }),
